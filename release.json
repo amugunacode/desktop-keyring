@@ -4,5 +4,13 @@
   "asset": "DesktopKeyring-Windows.zip",
   "bytes": 2483212,
   "sha256": "25bef032d3578d02c634d5f070bb672f7690e64ac4efd231c13f1b900be07399",
-  "siteUrl": "https://desktop-keyring.vercel.app"
+  "siteUrl": "https://desktop-keyring.vercel.app",
+  "mac": {
+    "version": "2.3.0-preview.1",
+    "tag": "v2.3.0-mac-preview.1",
+    "asset": "DesktopKeyring-Mac.zip",
+    "bytes": 2086085,
+    "sha256": "8a7a059398aa919e0e90826e9a7d07aa6ddc64d234575bc72628d88727b732ba",
+    "preview": true
+  }
 }

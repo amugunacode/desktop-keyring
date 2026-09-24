@@ -4,7 +4,9 @@
 
 Windows 다운로드: https://github.com/amugunacode/desktop-keyring/releases/latest
 
-Windows용 데스크탑키링 v2.3 소개·다운로드 사이트입니다. 프레임워크나 런타임 의존 패키지가 없는 HTML/CSS/JavaScript 사이트이며 Vercel에서 정적 파일로 배포합니다. Windows 프로그램 소스는 이 저장소에 포함하지 않습니다.
+Windows용 데스크탑키링 v2.3 및 Mac v2.3 테스트 버전의 소개·다운로드 사이트입니다. 프레임워크나 런타임 의존 패키지가 없는 HTML/CSS/JavaScript 사이트이며 Vercel에서 정적 파일로 배포합니다. Windows·Mac 프로그램 소스는 이 공개 저장소에 포함하지 않습니다. Mac 앱 소스는 별도 비공개 저장소에서 관리합니다.
+
+Mac 다운로드: https://desktop-keyring.vercel.app/mac.html
 
 ## 로컬 실행
 
@@ -22,6 +24,10 @@ http://127.0.0.1:4173 에서 확인합니다. `public`이 원본이며 `dist`는
 `release.json`에 버전, GitHub 저장소, 공개 ZIP의 바이트 크기와 SHA-256, 운영 사이트 주소를 기록합니다. 다운로드 버튼은 `https://github.com/{repository}/releases/latest/download/DesktopKeyring-Windows.zip`으로 연결됩니다.
 
 새 버전 릴리스에도 **동일한 파일 이름 `DesktopKeyring-Windows.zip`** 을 사용하고 최신 정식 릴리스로 지정하세요. 사용자에게 보낸 사이트 주소와 다운로드 버튼은 유지됩니다. 파일명이나 버전이 바뀌면 `release.json`도 업데이트하고 다시 배포합니다. 자동 업데이트 기능은 Windows 프로그램에 포함되어 있지 않습니다.
+
+Mac 페이지는 `release.json`의 `mac` 항목에서 버전, 릴리스 태그, 파일명, 크기, SHA-256을 읽습니다. Mac 다운로드는 명시한 태그로 연결되며 Windows의 `latest` 링크와 분리됩니다. Mac 테스트 버전 릴리스는 GitHub의 **Pre-release**로 지정하고 **Latest**로 변경하지 마세요.
+
+현재 Mac 앱은 ad-hoc 서명만 적용됐으며 Apple Developer ID 서명·공증 전입니다. 이를 다운로드 버튼 위에 표시합니다. 공증된 버전을 배포하기 전에는 테스트 안내를 제거하지 마세요. 페이지에 포함된 설정창은 실제 macOS 앱에서 렌더링한 이미지입니다.
 
 ## Vercel 배포
 
