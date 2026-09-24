@@ -1,5 +1,9 @@
 # 데스크탑키링 다운로드 페이지
 
+운영 사이트: https://desktop-keyring.vercel.app
+
+Windows 다운로드: https://github.com/amugunacode/desktop-keyring/releases/latest
+
 Windows용 데스크탑키링 v2.3 소개·다운로드 사이트입니다. 프레임워크나 런타임 의존 패키지가 없는 HTML/CSS/JavaScript 사이트이며 Vercel에서 정적 파일로 배포합니다. Windows 프로그램 소스는 이 저장소에 포함하지 않습니다.
 
 ## 로컬 실행
