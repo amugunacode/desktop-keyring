@@ -135,8 +135,17 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 .hint{
   position:absolute;left:50%;bottom:calc(16px + var(--safe-bottom));transform:translateX(-50%);
   background:rgba(29,36,51,.82);color:#fff;font-size:.85rem;padding:7px 16px;border-radius:18px;width:max-content;
-  pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 32px);text-align:center;
+  pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 132px);text-align:center;
 }
+
+/* Floating view controls (bottom-right of the board) */
+.zoom-ctl{position:absolute;right:12px;bottom:calc(12px + var(--safe-bottom));display:flex;flex-direction:column;gap:8px;z-index:2}
+.zbtn{width:42px;height:42px;border:0;border-radius:14px;background:rgba(255,255,255,.92);box-shadow:var(--shadow-sm);display:grid;place-items:center;color:var(--ink);touch-action:manipulation;transition:transform .12s,background .15s}
+.zbtn:hover{background:#fff}
+.zbtn:active{transform:scale(.92)}
+.zbtn:focus-visible{outline:3px solid rgba(91,108,255,.45);outline-offset:2px}
+.zbtn svg{width:20px;height:20px}
+#gatherBtn{color:var(--accent)}
 
 /* Hold-to-peek overlay */
 .peek{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:rgba(29,36,51,.45);pointer-events:none;animation:fade .15s ease}
@@ -268,6 +277,16 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     <canvas id="board" aria-label="퍼즐 보드 · Puzzle board"></canvas>
     <div class="loader" id="loader" hidden><div><div class="spinner"></div><span id="loaderText" class="bi"></span></div></div>
     <div class="hint" id="hint" hidden></div>
+    <div class="zoom-ctl" role="toolbar" aria-label="보기 조절 · View controls">
+      <button class="zbtn" id="gatherBtn" type="button" title="보이는 곳으로 조각 모으기 (G) · Gather pieces into view (G)" aria-label="조각 모으기 · Gather pieces">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg></button>
+      <button class="zbtn" id="zoomInBtn" type="button" title="확대 (+) · Zoom in (+)" aria-label="확대 · Zoom in">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="zbtn" id="zoomOutBtn" type="button" title="축소 (−) · Zoom out (−)" aria-label="축소 · Zoom out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+      <button class="zbtn" id="fitBtn" type="button" title="전체 보기 (0) · Fit board (0)" aria-label="전체 보기 · Fit board">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
   </div>
 </section>
 
@@ -808,20 +827,30 @@ function computeBoard(P, viewW, viewH) {
 }
 
 /** Returns `count` scatter positions (cell top-left) around the frame. */
-function scatterSlots(P, board, count) {
+/** Grid of piece centres inside `region` that keep clear of the frame (unless allowFrame). */
+function gridSlots(P, region, step, allowFrame) {
   const { W, H, cw, ch, s } = P;
   const keepOut = s * 0.55;                       // gap kept between pieces and frame
+  const halfW = cw / 2 + s * 0.15, halfH = ch / 2 + s * 0.15;
+  const slots = [];
+  for (let y = region.y + halfH + s * 0.2; y <= region.y + region.h - halfH - s * 0.2; y += step) {
+    for (let x = region.x + halfW + s * 0.2; x <= region.x + region.w - halfW - s * 0.2; x += step) {
+      const overlaps = x + halfW > -keepOut && x - halfW < W + keepOut && y + halfH > -keepOut && y - halfH < H + keepOut;
+      if (allowFrame || !overlaps) slots.push({ x, y, d: Math.max(Math.abs(x - W / 2) - W / 2, Math.abs(y - H / 2) - H / 2) });
+    }
+  }
+  return slots;
+}
+
+/** `avoid` (optional world rect) is kept clear, e.g. the area under the zoom buttons. */
+function scatterSlots(P, board, count, avoid) {
+  const { cw, ch, s } = P;
   let step = s * 1.3;
   let slots = [];
+  const clear = (sl) => !avoid || sl.x + cw / 2 < avoid.x || sl.x - cw / 2 > avoid.x + avoid.w ||
+    sl.y + ch / 2 < avoid.y || sl.y - ch / 2 > avoid.y + avoid.h;
   for (let iter = 0; iter < 40; iter++) {
-    slots = [];
-    const halfW = cw / 2 + s * 0.15, halfH = ch / 2 + s * 0.15;
-    for (let y = board.y + halfH + s * 0.2; y <= board.y + board.h - halfH - s * 0.2; y += step) {
-      for (let x = board.x + halfW + s * 0.2; x <= board.x + board.w - halfW - s * 0.2; x += step) {
-        const overlaps = x + halfW > -keepOut && x - halfW < W + keepOut && y + halfH > -keepOut && y - halfH < H + keepOut;
-        if (!overlaps) slots.push({ x, y, d: Math.max(Math.abs(x - W / 2) - W / 2, Math.abs(y - H / 2) - H / 2) });
-      }
-    }
+    slots = gridSlots(P, board, step).filter(clear);
     if (slots.length >= count) break;
     step *= 0.93;
   }
@@ -1125,6 +1154,38 @@ function zoomAt(sx, sy, factor) {
   scheduleSpriteUpgrade();
 }
 
+/** View that zooms to scale s around screen point (sx, sy), clamped to the board. */
+function viewZoomedAt(sx, sy, s) {
+  const saved = { s: view.s, tx: view.tx, ty: view.ty };
+  const w = screenToWorld(sx, sy);
+  view.s = clamp(s, view.min, view.max);
+  view.tx = sx - w.x * view.s;
+  view.ty = sy - w.y * view.s;
+  clampView();
+  const to = { s: view.s, tx: view.tx, ty: view.ty };
+  Object.assign(view, saved);
+  return to;
+}
+function tweenTo(to, dur = 320) {
+  if (reducedMotion) { Object.assign(view, to); requestRender(); scheduleSpriteUpgrade(); return; }
+  viewTween = { from: { s: view.s, tx: view.tx, ty: view.ty }, to, t0: performance.now(), dur };
+  requestRender();
+  scheduleSpriteUpgrade();
+}
+/** A comfortable play zoom: pieces about 64 CSS px wide. */
+function comfortScale() {
+  return clamp(Math.max(64 / game.P.s, view.fit * 2.2), view.min, view.max);
+}
+/** Double-tap: zoom in to a comfortable size there, or back out to the whole board. */
+function toggleZoomAt(sx, sy) {
+  if (view.s > view.fit * 1.6) fitView(true);
+  else tweenTo(viewZoomedAt(sx, sy, comfortScale()));
+}
+function zoomBy(f) {
+  if (!game.P) return;
+  tweenTo(viewZoomedAt(view.cssW / 2, view.cssH / 2, view.s * f), 220);
+}
+
 /** After zooming in, re-render sprites sharper (in the background). */
 let upgradeTimer = 0, upgrading = false;
 function scheduleSpriteUpgrade() {
@@ -1173,7 +1234,7 @@ function hitTest(w, touch) {
   }
   // Touch is imprecise: fall back to a piece whose body is within a few px.
   if (touch) {
-    const tol = 12 / view.s;
+    const tol = 16 / view.s;
     for (let gi = game.groups.length - 1; gi >= 0; gi--) {
       const g = game.groups[gi];
       if (g.locking || (game.edgeOnly && !g.hasEdge)) continue;
@@ -1225,7 +1286,7 @@ boardCanvas.addEventListener('pointerdown', (e) => {
     if (g) {
       bringToFront(g);
       const p0 = g.pieces[0];
-      drag = { group: g, pointerId: e.pointerId, last: screenToWorld(pt.x, pt.y), anchor: { x: p0.x, y: p0.y }, hot: false };
+      drag = { group: g, pointerId: e.pointerId, last: screenToWorld(pt.x, pt.y), anchor: { x: p0.x, y: p0.y }, hot: false, start: pt };
       boardCanvas.classList.add('dragging');
       hideHint();
       requestRender();
@@ -1285,7 +1346,7 @@ function endPointer(e) {
     // Double-tap / double-click on empty board → fit to screen.
     const now = performance.now();
     if (pan.moved < 8 && now - pan.t < 300) {
-      if (now - lastTap.t < 350 && Math.hypot(pan.sx - lastTap.x, pan.sy - lastTap.y) < 30) { fitView(true); lastTap.t = 0; }
+      if (now - lastTap.t < 350 && Math.hypot(pan.sx - lastTap.x, pan.sy - lastTap.y) < 30) { toggleZoomAt(pan.sx, pan.sy); lastTap.t = 0; }
       else lastTap = { t: now, x: pan.sx, y: pan.sy };
     }
     pan = null;
@@ -1315,17 +1376,36 @@ boardCanvas.addEventListener('wheel', (e) => {
   zoomAt(pt.x, pt.y, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)));
 }, { passive: false });
 
-/** While dragging a piece close to the screen edge, nudge the view. */
+/**
+ * While a dragged piece is held near the screen edge, keep scrolling the
+ * view (faster the closer to the edge), so pieces can be carried anywhere
+ * even when zoomed in.
+ */
+let edgePanRaf = 0;
 function autoPanNearEdge(pt) {
-  const zone = 28, speed = 10;
-  let dx = 0, dy = 0;
-  if (pt.x < zone) dx = speed; else if (pt.x > view.cssW - zone) dx = -speed;
-  if (pt.y < zone) dy = speed; else if (pt.y > view.cssH - zone) dy = -speed;
+  drag.pt = pt;
+  if (!drag.start) drag.start = pt;
+  // Only once the piece is really being carried, and only when zoomed in
+  // (at the fitted view everything is already on screen).
+  if (Math.hypot(pt.x - drag.start.x, pt.y - drag.start.y) < 24 || view.s < view.fit * 1.15) return;
+  if (!edgePanRaf) edgePanRaf = requestAnimationFrame(edgePanStep);
+}
+function edgePanStep() {
+  edgePanRaf = 0;
+  if (!drag || !drag.pt) return;
+  const pt = drag.pt, zone = 44, max = 14;
+  const push = (d) => (d < zone ? max * (1 - d / zone) : 0);
+  const dx = push(pt.x) - push(view.cssW - pt.x);
+  const dy = push(pt.y) - push(view.cssH - pt.y);
   if (!dx && !dy) return;
+  const bx = view.tx, by = view.ty;
   view.tx += dx; view.ty += dy;
   clampView();
+  if (view.tx === bx && view.ty === by) return;   // hit the board edge
   // Keep the dragged group under the finger.
   dragTo(screenToWorld(pt.x, pt.y));
+  requestRender();
+  edgePanRaf = requestAnimationFrame(edgePanStep);
 }
 
 /**
@@ -1898,7 +1978,7 @@ async function startGame(restore) {
 
   // Every piece starts as its own group. The puzzle first appears assembled
   // in the frame, then the pieces burst out to their scattered spots.
-  const slots = scatterSlots(P, board, P.pieces.length);
+  const slots = scatterSlots(P, board, P.pieces.length, controlsAvoidRect());
   const order = shuffle(P.pieces.slice());
   game.groups = order.map((p) => newGroup([p]));
   const now = performance.now();
@@ -1923,7 +2003,10 @@ async function startGame(restore) {
     if (token !== game.token) return;
     startTimer();
     scheduleSave();
-    if (touch) showHint('조각을 액자로 옮기세요 · 두 손가락으로 확대', 'Drag pieces into the frame · pinch to zoom');
+    if (P.s * view.s < 30) {
+      showHint(touch ? '조각이 작아요 · 두 번 탭하면 확대, 모으기 버튼으로 조각을 불러와요' : '조각이 작아요 · 더블클릭하면 확대, 모으기 버튼으로 조각을 불러와요',
+        touch ? 'Small pieces · double-tap to zoom, use Gather to bring pieces into view' : 'Small pieces · double-click to zoom, use Gather to bring pieces into view', 7000);
+    } else if (touch) showHint('조각을 액자로 옮기세요 · 두 손가락으로 확대', 'Drag pieces into the frame · pinch to zoom');
     else showHint('조각을 액자로 옮기세요 · 스크롤로 확대, 빈 곳을 끌어 이동', 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
   }, Math.max(0, introEnd - now));
 }
@@ -1959,7 +2042,7 @@ function rescatter() {
   const P = game.P;
   if (!P || game.completed) return;
   const groups = game.groups.filter((g) => !g.locking);
-  const slots = scatterSlots(P, game.board, groups.length);
+  const slots = scatterSlots(P, game.board, groups.length, controlsAvoidRect());
   shuffle(groups).forEach((g, i) => {
     const p0 = g.pieces[0];
     animateGroupBy(g, slots[i].x - p0.x, slots[i].y - p0.y, 380);
@@ -1968,6 +2051,80 @@ function rescatter() {
   scheduleSave();
   requestRender();
 }
+
+/**
+ * "Gather": brings loose pieces into the part of the board you are looking
+ * at, so you don't have to pan around hunting for them when zoomed in.
+ * Pieces already in view stay; others fill the free spots in view.
+ */
+function gatherIntoView() {
+  const P = game.P;
+  if (!P || game.completed || performance.now() < game.introUntil) return;
+  const B = game.board;
+  const tl = screenToWorld(0, 0), br = screenToWorld(view.cssW, view.cssH);
+  const region = {
+    x: Math.max(B.x, tl.x), y: Math.max(B.y, tl.y),
+    w: Math.min(B.x + B.w, br.x) - Math.max(B.x, tl.x), h: Math.min(B.y + B.h, br.y) - Math.max(B.y, tl.y),
+  };
+  const inView = (p) => p.x + P.cw > region.x && p.x < region.x + region.w && p.y + P.ch > region.y && p.y < region.y + region.h;
+  const candidates = shuffle(game.groups.filter((g) => !g.locking && g.pieces.length === 1 &&
+    (!game.edgeOnly || g.hasEdge) && !inView(g.pieces[0])));
+  if (!candidates.length) { showHint('모을 조각이 없어요', 'No more pieces to gather', 2000); return; }
+  if (region.w <= 0 || region.h <= 0) return;
+  // Free spots in view, skipping ones already covered by a loose piece.
+  const occupied = game.groups.flatMap((g) => g.pieces).filter(inView);
+  const free = (sl) => !occupied.some((p) => Math.abs(p.x + P.cw / 2 - sl.x) < P.cw * 0.8 && Math.abs(p.y + P.ch / 2 - sl.y) < P.ch * 0.8);
+  let slots = gridSlots(P, region, P.s * 1.25).filter(free);
+  if (slots.length < 6) {
+    // Zoomed in over the frame: lay pieces out like a tray along the lower
+    // part of the screen, floating above the frame, ready to drag up.
+    const ctlW = 64 / view.s;   // keep clear of the zoom buttons on the right
+    const tray = { x: region.x, y: region.y + region.h * 0.58, w: region.w - ctlW, h: region.h * 0.42 };
+    slots = slots.concat(gridSlots(P, tray, P.s * 1.25, true).filter(free));
+  }
+  if (!slots.length) return;
+  // Edge pieces first: they're usually placed first.
+  candidates.sort((a, b) => b.hasEdge - a.hasEdge);
+  const n = Math.min(slots.length, candidates.length);
+  const now = performance.now();
+  for (let i = 0; i < n; i++) {
+    const g = candidates[i], p = g.pieces[0];
+    const dx = slots[i].x - P.cw / 2 - p.x, dy = slots[i].y - P.ch / 2 - p.y;
+    p.x += dx; p.y += dy;
+    p.anim = reducedMotion ? null : { dx: -dx, dy: -dy, t0: now + i * 12, dur: 420, ease: easeInOutCubic };
+    bringToFront(g);
+  }
+  sceneCache = null;
+  hideHint();
+  audio.whoosh(0);
+  scheduleSave();
+  requestRender();
+}
+
+/** World rect covered by the floating zoom buttons when the board is fitted to the screen. */
+function controlsAvoidRect() {
+  const el = $('.zoom-ctl'), cr = boardCanvas.getBoundingClientRect(), r = el.getBoundingClientRect();
+  if (!r.width) return null;
+  const v = viewFor(game.board), m = 8;
+  return {
+    x: (r.left - cr.left - m - v.tx) / v.s, y: (r.top - cr.top - m - v.ty) / v.s,
+    w: (r.width + 2 * m) / v.s, h: (r.height + 2 * m) / v.s,
+  };
+}
+
+// ---- Zoom controls ----
+$('#zoomInBtn').addEventListener('click', () => zoomBy(1.6));
+$('#zoomOutBtn').addEventListener('click', () => zoomBy(1 / 1.6));
+$('#fitBtn').addEventListener('click', () => { if (game.P) fitView(true); });
+$('#gatherBtn').addEventListener('click', gatherIntoView);
+window.addEventListener('keydown', (e) => {
+  if (screens.game.hidden || !game.P || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  if (e.key === '+' || e.key === '=') zoomBy(1.4);
+  else if (e.key === '-' || e.key === '_') zoomBy(1 / 1.4);
+  else if (e.key === '0') fitView(true);
+  else if (e.key === 'g' || e.key === 'G') gatherIntoView();
+});
 
 // ---- Top bar buttons ----
 $('#edgeBtn').addEventListener('click', (e) => {

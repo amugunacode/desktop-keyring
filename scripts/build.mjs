@@ -38,5 +38,5 @@ for(const file of ['index.html','mac.html']){
 }
 await writeFile(path.join(dist,'release.json'),JSON.stringify(release,null,2)+'\n');
 await writeFile(path.join(dist,'robots.txt'),`User-agent: *\nAllow: /\n${site?`Sitemap: ${site}/sitemap.xml\n`:''}`);
-if(site)await writeFile(path.join(dist,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${site}/</loc></url><url><loc>${site}/mac.html</loc></url></urlset>`);
+if(site)await writeFile(path.join(dist,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${site}/</loc></url><url><loc>${site}/mac.html</loc></url><url><loc>${site}/puzzle/</loc></url></urlset>`);
 console.log(`Built desktop-keyring Windows v${release.version} / Mac v${mac.version}`);
