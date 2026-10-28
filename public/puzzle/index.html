@@ -1,0 +1,1769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#dde4ec">
+<meta name="description" content="Turn any photo into a jigsaw puzzle and solve it in your browser. Your photo never leaves your device.">
+<title>Photo Jigsaw</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%235b6cff' d='M8 14h14a7 7 0 1 1 14 0h14v14a7 7 0 1 0 0 14v14H36a7 7 0 1 0-14 0H8V42a7 7 0 1 1 0-14z'/%3E%3C/svg%3E">
+<style>
+/* =====================================================================
+   STYLES
+   ===================================================================== */
+:root{
+  --bg:#dde4ec;
+  --bg-2:#e9eef4;
+  --ink:#1d2433;
+  --ink-2:#5a6578;
+  --card:#ffffff;
+  --line:rgba(29,36,51,.10);
+  --accent:#5b6cff;
+  --accent-ink:#ffffff;
+  --accent-2:#ff7a59;
+  --ok:#2bb673;
+  --radius:18px;
+  --shadow:0 10px 30px rgba(40,55,90,.14),0 2px 6px rgba(40,55,90,.08);
+  --shadow-sm:0 2px 8px rgba(40,55,90,.10);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:0;border-radius:999px;padding:12px 22px;font-weight:650;
+  transition:transform .12s ease,box-shadow .2s ease,background .2s ease;
+  user-select:none;-webkit-user-select:none;
+}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible,.tool:focus-visible,.chip:focus-visible,.dropzone:focus-visible{outline:3px solid rgba(91,108,255,.45);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 16px rgba(91,108,255,.35)}
+.btn.primary:hover{background:#4c5cf0}
+.btn.ghost{background:var(--card);color:var(--ink);box-shadow:var(--shadow-sm)}
+.btn.ghost:hover{background:#f4f6fb}
+.btn.big{padding:15px 30px;font-size:1.05rem}
+.btn svg{width:18px;height:18px}
+
+/* ---------- Landing ---------- */
+.landing{align-items:center;justify-content:center;padding:24px 16px calc(24px + var(--safe-bottom));overflow:auto;
+  background:radial-gradient(1200px 600px at 10% -10%,#f3e9ff 0,transparent 60%),radial-gradient(900px 600px at 110% 110%,#ffe9e0 0,transparent 55%),var(--bg)}
+.hero{width:100%;max-width:560px;text-align:center}
+.logo{width:64px;height:64px;margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(91,108,255,.35));animation:bob 3.5s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-5px) rotate(-4deg)}}
+h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacing:-.02em}
+.sub{margin:0 0 22px;color:var(--ink-2)}
+.dropzone{
+  position:relative;border-radius:24px;background:rgba(255,255,255,.75);
+  border:2px dashed rgba(91,108,255,.35);padding:36px 20px 28px;cursor:pointer;
+  box-shadow:var(--shadow);transition:border-color .2s,background .2s,transform .2s;
+}
+.dropzone:hover{border-color:rgba(91,108,255,.6)}
+.dropzone.drag{border-color:var(--accent);background:#fff;transform:scale(1.015)}
+.dz-icon{width:56px;height:56px;margin:0 auto 10px;border-radius:16px;display:grid;place-items:center;background:#eef0ff;color:var(--accent)}
+.dz-icon svg{width:30px;height:30px}
+.dz-title{font-weight:700;font-size:1.15rem}
+.dz-hint{color:var(--ink-2);font-size:.92rem;margin:4px 0 18px}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.privacy{margin:18px 0 0;font-size:.88rem;color:var(--ink-2)}
+.privacy svg{width:15px;height:15px;vertical-align:-2px;margin-right:5px}
+.busy{position:absolute;inset:0;border-radius:22px;background:rgba(255,255,255,.85);display:grid;place-items:center;font-weight:650}
+.spinner{width:28px;height:28px;border-radius:50%;border:3px solid #dfe3ff;border-top-color:var(--accent);animation:spin .8s linear infinite;margin:0 auto 8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- Setup (difficulty) ---------- */
+.setup{align-items:center;justify-content:center;padding:16px 16px calc(16px + var(--safe-bottom));overflow:auto}
+.setup-card{width:100%;max-width:520px;background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:18px 18px 22px;position:relative}
+.back{border:0;background:none;color:var(--ink-2);font-weight:600;padding:6px 8px;border-radius:10px;margin:-4px 0 6px -4px}
+.back:hover{background:#f1f3f8;color:var(--ink)}
+.preview{display:block;margin:0 auto;border-radius:14px;box-shadow:var(--shadow-sm);max-width:100%;background:#eef1f6}
+.setup h2{font-size:1.15rem;margin:18px 0 10px;text-align:center}
+.chips{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}
+.chip{border:2px solid transparent;background:#f1f3f9;border-radius:14px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;transition:background .15s,border-color .15s,transform .12s}
+.chip b{font-size:1.1rem}
+.chip small{font-size:.72rem;color:var(--ink-2)}
+.chip:hover{background:#e8ebf6}
+.chip:active{transform:scale(.96)}
+.chip[aria-checked="true"]{background:#eef0ff;border-color:var(--accent)}
+.chip[aria-checked="true"] b{color:var(--accent)}
+.setup .actions{display:flex;justify-content:center}
+
+/* ---------- Game ---------- */
+.topbar{
+  position:relative;z-index:3;display:flex;align-items:center;gap:10px;
+  padding:calc(8px + var(--safe-top)) 10px 8px;background:rgba(255,255,255,.82);
+  backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);
+  box-shadow:0 1px 0 var(--line),0 4px 14px rgba(40,55,90,.06);
+}
+.stats{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.timer{font-variant-numeric:tabular-nums;font-weight:750;font-size:1.05rem;background:#f1f3f9;border-radius:10px;padding:5px 9px}
+.progress{flex:1;min-width:64px;max-width:220px}
+.progress-text{font-size:.8rem;font-weight:650;color:var(--ink-2);font-variant-numeric:tabular-nums;display:block;margin-bottom:4px;white-space:nowrap}
+.bar{height:5px;border-radius:99px;background:#e3e7f0;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--accent),#8a5bff);transition:width .3s ease}
+.tools{display:flex;gap:4px}
+.tool{
+  border:0;background:transparent;border-radius:12px;height:40px;min-width:40px;padding:0 9px;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600;font-size:.88rem;color:var(--ink);
+  transition:background .15s,color .15s;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
+}
+.tool:hover{background:#eef1f7}
+.tool:active{background:#e5e9f3}
+.tool[aria-pressed="true"]{background:#eef0ff;color:var(--accent)}
+.tool svg{width:21px;height:21px;flex:none}
+.tool span{display:none}
+@media (min-width:820px){.tool span{display:inline}}
+@media (max-width:380px){.tool{min-width:36px;padding:0 6px}.stats{gap:8px}.timer{font-size:.95rem;padding:4px 7px}}
+
+.board-wrap{position:relative;flex:1;min-height:0;background:var(--bg)}
+#board{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#board.dragging{cursor:grabbing}
+.loader{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-2);font-weight:600;background:var(--bg);z-index:2}
+.hint{
+  position:absolute;left:50%;bottom:calc(16px + var(--safe-bottom));transform:translateX(-50%);
+  background:rgba(29,36,51,.82);color:#fff;font-size:.85rem;padding:8px 14px;border-radius:99px;white-space:nowrap;
+  pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;
+}
+
+/* Hold-to-peek overlay */
+.peek{position:fixed;inset:0;z-index:5;display:grid;place-items:center;background:rgba(29,36,51,.45);pointer-events:none;animation:fade .15s ease}
+.peek canvas{max-width:calc(100vw - 32px);max-height:calc(100vh - 120px);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.35);background:#fff}
+@keyframes fade{from{opacity:0}}
+
+/* Completion */
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:6}
+.modal{position:fixed;inset:0;z-index:7;display:grid;place-items:center;padding:16px;background:rgba(29,36,51,.25);animation:fade .3s ease}
+.result{width:100%;max-width:360px;background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:26px 22px 22px;text-align:center;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(.85) translateY(10px);opacity:0}}
+.result .badge{font-size:2.6rem;line-height:1;margin-bottom:6px}
+.result h2{margin:0 0 14px;font-size:1.45rem}
+.result-stats{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+.result-stats div{flex:1;background:#f4f6fb;border-radius:14px;padding:10px}
+.result-stats b{display:block;font-size:1.35rem;font-variant-numeric:tabular-nums}
+.result-stats small{color:var(--ink-2);font-size:.8rem}
+.result .row .btn{flex:1}
+
+/* Toast */
+.toast{
+  position:fixed;left:50%;top:calc(16px + var(--safe-top));transform:translate(-50%,-20px);opacity:0;z-index:9;
+  background:#fff;color:var(--ink);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;max-width:min(440px,calc(100vw - 32px));
+  display:flex;gap:10px;align-items:flex-start;transition:opacity .25s,transform .25s;pointer-events:none;font-size:.95rem
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:7px}
+
+/* Full-window drop hint */
+.drop-overlay{position:fixed;inset:0;z-index:8;background:rgba(91,108,255,.18);border:4px dashed var(--accent);pointer-events:none;display:grid;place-items:center;font-weight:750;font-size:1.3rem;color:var(--accent)}
+
+@media (prefers-reduced-motion:reduce){.logo{animation:none}*{transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     MARKUP
+     ===================================================================== -->
+
+<!-- Landing -->
+<section id="landing" class="screen landing">
+  <div class="hero">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path fill="#5b6cff" d="M8 14h14a7 7 0 1 1 14 0h14v14a7 7 0 1 0 0 14v14H36a7 7 0 1 0-14 0H8V42a7 7 0 1 1 0-14z"/><path fill="#ff7a59" d="M36 42a7 7 0 1 0-14 0H8v14h42V42a7 7 0 1 1 0-14v14z" opacity=".9"/></svg>
+    <h1>Photo Jigsaw</h1>
+    <p class="sub">Turn any photo into a jigsaw puzzle and solve it right here.</p>
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose or drop a photo">
+      <div class="dz-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></div>
+      <div class="dz-title">Drop a photo here</div>
+      <div class="dz-hint">JPG, PNG, WEBP or HEIC (where your browser supports it)</div>
+      <div class="row">
+        <button class="btn primary" id="chooseBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-5 5m5-5 5 5M4 20h16"/></svg>Choose photo</button>
+        <button class="btn ghost" id="sampleBtn" type="button">Try a sample</button>
+      </div>
+      <div id="landingBusy" class="busy" hidden><div><div class="spinner"></div>Opening photo…</div></div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif" hidden>
+    <p class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Your photo stays on your device. Nothing is uploaded.</p>
+  </div>
+</section>
+
+<!-- Difficulty picker -->
+<section id="setup" class="screen setup" hidden>
+  <div class="setup-card">
+    <button class="back" id="backBtn" type="button">← Back</button>
+    <canvas id="previewCanvas" class="preview" width="480" height="320" aria-label="Photo preview with the piece grid"></canvas>
+    <h2>How many pieces?</h2>
+    <div class="chips" id="chips" role="radiogroup" aria-label="Number of pieces"></div>
+    <div class="actions"><button class="btn primary big" id="startBtn" type="button">Start puzzle</button></div>
+  </div>
+</section>
+
+<!-- Game -->
+<section id="game" class="screen" hidden>
+  <header class="topbar">
+    <div class="stats">
+      <div class="timer" id="timer" aria-label="Elapsed time">00:00</div>
+      <div class="progress">
+        <span class="progress-text" id="progressText">0 / 0</span>
+        <div class="bar" role="progressbar" aria-label="Pieces placed" id="progressBarWrap"><i id="progressBar"></i></div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="peekBtn" type="button" title="Hold to preview the full image" aria-label="Hold to preview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Preview</span></button>
+      <button class="tool" id="edgeBtn" type="button" aria-pressed="false" title="Show edge pieces only" aria-label="Edge pieces only">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1" stroke-dasharray="2 2.2"/></svg><span>Edges</span></button>
+      <button class="tool" id="scatterBtn" type="button" title="Re-scatter loose pieces" aria-label="Re-scatter pieces">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg><span>Re-scatter</span></button>
+      <button class="tool" id="muteBtn" type="button" aria-pressed="false" title="Mute sound" aria-label="Mute sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="snd-off" d="m23 9-6 6m0-6 6 6" hidden/></svg><span>Sound</span></button>
+      <button class="tool" id="newBtn" type="button" title="Start over with a new photo" aria-label="New photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><span>New photo</span></button>
+    </div>
+  </header>
+  <div class="board-wrap" id="boardWrap">
+    <canvas id="board" aria-label="Puzzle board"></canvas>
+    <div class="loader" id="loader" hidden><div><div class="spinner"></div><span id="loaderText">Cutting pieces…</span></div></div>
+    <div class="hint" id="hint" hidden></div>
+  </div>
+</section>
+
+<div class="peek" id="peek" hidden><canvas id="peekCanvas"></canvas></div>
+<canvas id="confetti" hidden></canvas>
+
+<div class="modal" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+  <div class="result">
+    <div class="badge" aria-hidden="true">🎉</div>
+    <h2 id="resultTitle">Puzzle complete!</h2>
+    <div class="result-stats">
+      <div><b id="resultTime">00:00</b><small>time</small></div>
+      <div><b id="resultPieces">0</b><small>pieces</small></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="againBtn" type="button">Play again</button>
+      <button class="btn ghost" id="resultNewBtn" type="button">New photo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="drop-overlay" id="dropOverlay" hidden>Drop your photo to start</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   1. UTILITIES
+   ===================================================================== */
+const $ = (sel) => document.querySelector(sel);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const rand = (a, b) => a + Math.random() * (b - a);
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return (m < 100 ? String(m).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0');
+}
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.ceil(w));
+  c.height = Math.max(1, Math.ceil(h));
+  return c;
+}
+function roundRectPath(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+let toastTimer = 0;
+function toast(msg, ms = 4200) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+function friendlyError(msg) {
+  const e = new Error(msg);
+  e.friendly = true;
+  return e;
+}
+
+/* =====================================================================
+   2. IMAGE LOADING  (validation, EXIF orientation, downscaling)
+   Everything happens locally: the file is decoded through an object URL
+   and drawn into a canvas. Nothing is sent over the network.
+   ===================================================================== */
+const MAX_EDGE = 2000;
+const MIN_EDGE = 64;
+const IMAGE_EXT = /\.(jpe?g|jfif|png|webp|gif|bmp|avif|heic|heif|tiff?)$/i;
+
+// 2x1 JPEG tagged with EXIF orientation 6. If the browser auto-applies EXIF
+// orientation, it decodes as 1x2. Used to avoid rotating photos twice.
+const EXIF_TEST_JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/2wBDAFA3PEY8MlBGQUZaVVBfeMiCeG5uePWvuZHI////////////////////////////////////////////////////2wBDAVVaWnhpeOuCguv/////////////////////////////////////////////////////////////////////////wAARCAABAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAP/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwT/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCQA1j/2Q==';
+let autoOrientPromise = null;
+function browserAutoOrients() {
+  if (!autoOrientPromise) {
+    autoOrientPromise = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img.naturalWidth === 1);
+      img.onerror = () => resolve(true); // assume modern behaviour
+      img.src = EXIF_TEST_JPEG;
+    });
+  }
+  return autoOrientPromise;
+}
+
+/** Reads the EXIF orientation tag (1-8) from a JPEG; returns 1 if absent. */
+async function readExifOrientation(file) {
+  const buf = await file.slice(0, 256 * 1024).arrayBuffer();
+  const v = new DataView(buf);
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xffd8) return 1;
+  let off = 2;
+  while (off + 4 <= v.byteLength) {
+    const marker = v.getUint16(off);
+    off += 2;
+    if ((marker & 0xff00) !== 0xff00 || marker === 0xffda) break;
+    const len = v.getUint16(off);
+    if (marker === 0xffe1 && off + 10 <= v.byteLength && v.getUint32(off + 2) === 0x45786966) {
+      const tiff = off + 8;
+      const little = v.getUint16(tiff) === 0x4949;
+      const ifd = tiff + v.getUint32(tiff + 4, little);
+      if (ifd + 2 > v.byteLength) return 1;
+      const n = v.getUint16(ifd, little);
+      for (let i = 0; i < n; i++) {
+        const e = ifd + 2 + i * 12;
+        if (e + 12 > v.byteLength) break;
+        if (v.getUint16(e, little) === 0x0112) return v.getUint16(e + 8, little) || 1;
+      }
+      return 1;
+    }
+    off += len;
+  }
+  return 1;
+}
+
+function decodeBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => resolve({ img, url });
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode failed')); };
+    img.src = url;
+  });
+}
+
+/** Draws an image into a canvas, applying EXIF orientation and the size cap. */
+function normalizeImage(img, orientation) {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) throw friendlyError("We couldn't read that image.");
+  if (Math.min(w, h) < MIN_EDGE) throw friendlyError('That image is too small for a puzzle. Try a bigger photo.');
+  const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
+  const dw = Math.round(w * scale), dh = Math.round(h * scale);
+  const swap = orientation >= 5 && orientation <= 8;
+  const cv = makeCanvas(swap ? dh : dw, swap ? dw : dh);
+  const ctx = cv.getContext('2d');
+  switch (orientation) {
+    case 2: ctx.transform(-1, 0, 0, 1, dw, 0); break;
+    case 3: ctx.transform(-1, 0, 0, -1, dw, dh); break;
+    case 4: ctx.transform(1, 0, 0, -1, 0, dh); break;
+    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+    case 6: ctx.transform(0, 1, -1, 0, dh, 0); break;
+    case 7: ctx.transform(0, -1, -1, 0, dh, dw); break;
+    case 8: ctx.transform(0, -1, 1, 0, 0, dw); break;
+  }
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, dw, dh);
+  return cv;
+}
+
+async function loadImageFile(file) {
+  if (!file) throw friendlyError('No file selected.');
+  const name = file.name || '';
+  const looksLikeImage = (file.type && file.type.startsWith('image/')) || IMAGE_EXT.test(name);
+  if (!looksLikeImage) throw friendlyError("That file doesn't look like a photo. Please choose a JPG, PNG, WEBP or HEIC image.");
+  const isHeic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(name);
+  const [decoded, orientation] = await Promise.all([
+    decodeBlob(file).catch(() => null),
+    readExifOrientation(file).catch(() => 1),
+  ]);
+  if (!decoded) {
+    throw friendlyError(isHeic
+      ? "This browser can't open HEIC photos. Try Safari, or convert the photo to JPG first."
+      : "We couldn't open that image. It may be damaged or in an unsupported format.");
+  }
+  try {
+    const manual = orientation > 1 && !(await browserAutoOrients());
+    return normalizeImage(decoded.img, manual ? orientation : 1);
+  } finally {
+    URL.revokeObjectURL(decoded.url);
+  }
+}
+
+/* =====================================================================
+   3. SAMPLE IMAGE  (procedurally painted, so the page has no assets)
+   ===================================================================== */
+function makeSampleImage() {
+  const W = 1600, H = 1100;
+  const cv = makeCanvas(W, H);
+  const g = cv.getContext('2d');
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+  // Sky
+  let gr = g.createLinearGradient(0, 0, 0, H * 0.62);
+  gr.addColorStop(0, '#3a3f9e'); gr.addColorStop(0.45, '#c86dd7'); gr.addColorStop(0.8, '#ff9a8b'); gr.addColorStop(1, '#ffd59e');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // Stars in the upper sky
+  for (let i = 0; i < 140; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.3 + rnd() * 0.6})`;
+    g.beginPath(); g.arc(rnd() * W, rnd() * H * 0.28, rnd() * 1.8 + 0.4, 0, 7); g.fill();
+  }
+  // Sun with glow
+  const sx = W * 0.64, sy = H * 0.5;
+  gr = g.createRadialGradient(sx, sy, 10, sx, sy, 380);
+  gr.addColorStop(0, 'rgba(255,240,180,.95)'); gr.addColorStop(0.25, 'rgba(255,200,120,.5)'); gr.addColorStop(1, 'rgba(255,160,120,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#fff4c7'; g.beginPath(); g.arc(sx, sy, 92, 0, 7); g.fill();
+  // Clouds
+  const cloud = (x, y, s, a) => {
+    g.fillStyle = `rgba(255,236,245,${a})`;
+    for (let i = 0; i < 7; i++) { g.beginPath(); g.ellipse(x + (i - 3) * 38 * s, y + Math.sin(i * 1.7) * 12 * s, 60 * s, 30 * s, 0, 0, 7); g.fill(); }
+  };
+  cloud(260, 210, 1.2, 0.55); cloud(1080, 150, 0.9, 0.45); cloud(1380, 330, 1.1, 0.5); cloud(520, 380, 0.8, 0.4);
+  // Hot-air balloons
+  const balloon = (x, y, r, colors) => {
+    for (let i = 0; i < colors.length; i++) {
+      g.fillStyle = colors[i];
+      g.beginPath();
+      g.ellipse(x, y, r * (1 - i / colors.length), r * 1.15, 0, 0, 7);
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(60,30,40,.6)'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(x - r * 0.45, y + r * 1.05); g.lineTo(x - r * 0.2, y + r * 1.6); g.moveTo(x + r * 0.45, y + r * 1.05); g.lineTo(x + r * 0.2, y + r * 1.6); g.stroke();
+    g.fillStyle = '#7a4a2a'; g.fillRect(x - r * 0.22, y + r * 1.58, r * 0.44, r * 0.3);
+  };
+  balloon(330, 470, 70, ['#ff5e62', '#ffd166', '#ff5e62', '#ffd166']);
+  balloon(1220, 250, 48, ['#06d6a0', '#118ab2', '#06d6a0']);
+  balloon(860, 120, 34, ['#ffd166', '#ef476f', '#ffd166']);
+  // Mountain ranges
+  const range = (baseY, amp, color, rough) => {
+    g.fillStyle = color; g.beginPath(); g.moveTo(0, H);
+    for (let x = 0; x <= W; x += 20) {
+      const y = baseY - Math.abs(Math.sin(x * 0.0042 + amp) * amp) - Math.sin(x * 0.013 + rough) * amp * 0.25 - rnd() * rough;
+      g.lineTo(x, y);
+    }
+    g.lineTo(W, H); g.closePath(); g.fill();
+  };
+  range(H * 0.6, 160, '#9b6fb8', 6);
+  range(H * 0.63, 120, '#6e4f9a', 8);
+  range(H * 0.66, 80, '#46386f', 10);
+  // Lake with reflection
+  const lakeY = H * 0.66;
+  g.save();
+  g.beginPath(); g.rect(0, lakeY, W, H - lakeY); g.clip();
+  g.translate(0, lakeY * 2); g.scale(1, -1); g.globalAlpha = 0.55; g.drawImage(cv, 0, 0); g.restore();
+  gr = g.createLinearGradient(0, lakeY, 0, H);
+  gr.addColorStop(0, 'rgba(40,40,110,.25)'); gr.addColorStop(1, 'rgba(20,25,70,.75)');
+  g.fillStyle = gr; g.fillRect(0, lakeY, W, H - lakeY);
+  g.strokeStyle = 'rgba(255,230,200,.35)'; g.lineWidth = 2;
+  for (let i = 0; i < 40; i++) {
+    const y = lakeY + 10 + rnd() * (H - lakeY - 20), x = rnd() * W, w = 30 + rnd() * 120;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + w, y); g.stroke();
+  }
+  // Shore with pine trees and a cabin
+  g.fillStyle = '#23203f';
+  g.beginPath(); g.moveTo(0, H); g.lineTo(0, H * 0.83);
+  g.quadraticCurveTo(W * 0.2, H * 0.78, W * 0.42, H * 0.86); g.quadraticCurveTo(W * 0.5, H * 0.9, W * 0.48, H); g.closePath(); g.fill();
+  const pine = (x, y, h) => {
+    g.fillStyle = '#1b1833';
+    for (let i = 0; i < 4; i++) {
+      const w = h * (0.42 - i * 0.07), ty = y - h * (0.25 + i * 0.22);
+      g.beginPath(); g.moveTo(x, ty - h * 0.3); g.lineTo(x - w, ty + h * 0.12); g.lineTo(x + w, ty + h * 0.12); g.closePath(); g.fill();
+    }
+    g.fillRect(x - h * 0.03, y - h * 0.15, h * 0.06, h * 0.15);
+  };
+  [[60, 0.92, 210], [150, 0.88, 160], [230, 0.9, 240], [520, 0.87, 180], [600, 0.9, 150]].forEach(([x, y, h]) => pine(x, H * y, h));
+  const cx = 360, cy = H * 0.85;
+  g.fillStyle = '#5a3a3a'; g.fillRect(cx, cy - 70, 120, 70);
+  g.fillStyle = '#c0504d'; g.beginPath(); g.moveTo(cx - 14, cy - 66); g.lineTo(cx + 60, cy - 120); g.lineTo(cx + 134, cy - 66); g.closePath(); g.fill();
+  g.fillStyle = '#ffd36b'; g.fillRect(cx + 20, cy - 50, 26, 22); g.fillRect(cx + 74, cy - 50, 26, 22);
+  gr = g.createRadialGradient(cx + 60, cy - 40, 5, cx + 60, cy - 40, 120);
+  gr.addColorStop(0, 'rgba(255,210,120,.35)'); gr.addColorStop(1, 'rgba(255,210,120,0)');
+  g.fillStyle = gr; g.fillRect(cx - 80, cy - 160, 280, 240);
+  // Little sailboat
+  g.fillStyle = '#f8f1e7'; g.beginPath(); g.moveTo(1100, 860); g.lineTo(1100, 740); g.lineTo(1170, 850); g.closePath(); g.fill();
+  g.fillStyle = '#ff7a59'; g.beginPath(); g.moveTo(1094, 850); g.lineTo(1094, 770); g.lineTo(1050, 845); g.closePath(); g.fill();
+  g.fillStyle = '#2a2550'; g.beginPath(); g.moveTo(1040, 862); g.lineTo(1185, 862); g.lineTo(1165, 885); g.lineTo(1060, 885); g.closePath(); g.fill();
+  return cv;
+}
+
+/* =====================================================================
+   4. GRID  (pick rows × cols so pieces are roughly square)
+   ===================================================================== */
+const DIFFICULTIES = [24, 48, 100, 200, 500];
+
+function computeGrid(target, w, h) {
+  let best = null;
+  for (let cols = 2; cols <= 80; cols++) {
+    const base = Math.round(target / cols);
+    for (const rows of [base - 1, base, base + 1]) {
+      if (rows < 2) continue;
+      const pieceAspect = (w / cols) / (h / rows);
+      const score = Math.abs(cols * rows - target) / target + Math.abs(Math.log(pieceAspect)) * 0.9;
+      if (!best || score < best.score) best = { cols, rows, score };
+    }
+  }
+  return { cols: best.cols, rows: best.rows, count: best.cols * best.rows };
+}
+
+/* =====================================================================
+   5. PIECE SHAPE GENERATION
+   Every interior edge is generated once (tab direction and jitter are
+   random per edge) and shared by both neighbouring pieces: one walks it
+   forwards, the other backwards, so the shapes match exactly.
+   Each edge is 3 cubic Béziers = 10 points (start, 3×[c1, c2, end]).
+   ===================================================================== */
+function randomEdgeParams() {
+  const j = 0.035;
+  return {
+    flip: Math.random() < 0.5 ? 1 : -1,
+    t: rand(0.085, 0.105),
+    a: rand(-j, j), b: rand(-j, j), c: rand(-j, j), d: rand(-j, j), e: rand(-j, j),
+  };
+}
+
+/** Edge points in world space. (x0,y0) start, u = unit along, v = unit normal. */
+function edgePoints(p, x0, y0, ux, uy, len, vx, vy, depth) {
+  const pt = (l, w) => {
+    const L = l * len, D = w * depth * p.flip;
+    return [x0 + ux * L + vx * D, y0 + uy * L + vy * D];
+  };
+  const { t, a, b, c, d, e } = p;
+  return [
+    pt(0, 0),
+    pt(0.2, a), pt(0.5 + b + d, -t + c), pt(0.5 - t + b, t + c),
+    pt(0.5 - 2 * t + b - d, 3 * t + c), pt(0.5 + 2 * t + b - d, 3 * t + c), pt(0.5 + t + b, t + c),
+    pt(0.5 + b + d, -t + c), pt(0.8, e), pt(1, 0),
+  ];
+}
+
+function buildPuzzle(src, cols, rows) {
+  const W = src.width, H = src.height;
+  const cw = W / cols, ch = H / rows;
+  const s = Math.min(cw, ch);          // nominal piece size
+  const pad = s * 0.42;                // room for tabs + shadow around a cell
+
+  // Interior edges: hEdges[r][c] lies on y = r*ch (1 <= r < rows),
+  //                 vEdges[r][c] lies on x = c*cw (1 <= c < cols).
+  const hEdges = [], vEdges = [];
+  for (let r = 0; r < rows; r++) {
+    hEdges[r] = []; vEdges[r] = [];
+    for (let c = 0; c < cols; c++) {
+      if (r > 0) hEdges[r][c] = edgePoints(randomEdgeParams(), c * cw, r * ch, 1, 0, cw, 0, 1, s);
+      if (c > 0) vEdges[r][c] = edgePoints(randomEdgeParams(), c * cw, r * ch, 0, 1, ch, 1, 0, s);
+    }
+  }
+
+  const pieces = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x0 = c * cw, y0 = r * ch;
+      const path = new Path2D();
+      // Appends an edge (optionally reversed) translated into piece-local coords.
+      const addEdge = (pts, reverse) => {
+        const P = reverse ? pts.slice().reverse() : pts;
+        for (let i = 1; i < 10; i += 3) {
+          path.bezierCurveTo(P[i][0] - x0, P[i][1] - y0, P[i + 1][0] - x0, P[i + 1][1] - y0, P[i + 2][0] - x0, P[i + 2][1] - y0);
+        }
+      };
+      path.moveTo(0, 0);
+      if (r === 0) path.lineTo(cw, 0); else addEdge(hEdges[r][c], false);            // top    →
+      if (c === cols - 1) path.lineTo(cw, ch); else addEdge(vEdges[r][c + 1], false); // right  ↓
+      if (r === rows - 1) path.lineTo(0, ch); else addEdge(hEdges[r + 1][c], true);   // bottom ←
+      if (c === 0) path.closePath(); else { addEdge(vEdges[r][c], true); path.closePath(); } // left ↑
+      pieces.push({
+        id: pieces.length, r, c, path,
+        cx: x0, cy: y0,              // correct world position (top-left of cell)
+        x: x0, y: y0,                // current world position
+        edge: r === 0 || c === 0 || r === rows - 1 || c === cols - 1,
+        group: null, locked: false,
+        anim: null,                  // {dx, dy, t0, dur} snap animation offset
+        sprite: null,                // {page, x, y} position in the sprite atlas
+      });
+    }
+  }
+
+  // One path with every interior edge, for the faint ghost grid.
+  const ghost = new Path2D();
+  const ghostEdge = (pts) => {
+    ghost.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < 10; i += 3) ghost.bezierCurveTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], pts[i + 2][0], pts[i + 2][1]);
+  };
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    if (hEdges[r][c]) ghostEdge(hEdges[r][c]);
+    if (vEdges[r][c]) ghostEdge(vEdges[r][c]);
+  }
+
+  return { src, W, H, cols, rows, cw, ch, s, pad, pieces, ghost };
+}
+
+/* =====================================================================
+   6. SPRITE RENDERING
+   Each piece is pre-rendered once (clipped photo + bevel + drop shadow)
+   into a shared texture atlas. Per frame we only blit rectangles from the
+   atlas, which keeps 500 pieces smooth on phones.
+   ===================================================================== */
+const ATLAS_GAP = 2;
+const SPRITE_BUDGET_PX = 18e6;   // cap on total sprite pixels (~72 MB)
+
+/** Paints the photo face of a piece with a bevel. ctx maps piece-local coords. */
+function drawPieceFace(ctx, P, piece, bevel) {
+  const { src, W, H, cw, ch, pad, s } = P;
+  ctx.save();
+  ctx.clip(piece.path);
+  const sx = Math.max(0, piece.cx - pad), sy = Math.max(0, piece.cy - pad);
+  const ex = Math.min(W, piece.cx + cw + pad), ey = Math.min(H, piece.cy + ch + pad);
+  ctx.drawImage(src, sx, sy, ex - sx, ey - sy, sx - piece.cx, sy - piece.cy, ex - sx, ey - sy);
+  // Bevel: a light stroke offset down-right shows on the top-left inner rim,
+  // a dark stroke offset up-left shows on the bottom-right inner rim.
+  const o = s * 0.022;
+  ctx.lineJoin = 'round';
+  for (const [k, light, dark] of [[2.2, 0.16 * bevel, 0.14 * bevel], [1, 0.32 * bevel, 0.26 * bevel]]) {
+    ctx.lineWidth = o * k;
+    ctx.save(); ctx.translate(o, o); ctx.strokeStyle = `rgba(255,255,255,${light})`; ctx.stroke(piece.path); ctx.restore();
+    ctx.save(); ctx.translate(-o, -o); ctx.strokeStyle = `rgba(0,0,0,${dark})`; ctx.stroke(piece.path); ctx.restore();
+  }
+  ctx.restore();
+  ctx.lineWidth = s * 0.008;
+  ctx.strokeStyle = `rgba(20,25,40,${0.22 * bevel + 0.06})`;
+  ctx.stroke(piece.path);
+}
+
+class Atlas {
+  constructor(pageSize) {
+    this.size = pageSize;
+    this.pages = [];
+    this.newPage();
+  }
+  newPage() {
+    const c = makeCanvas(this.size, this.size);
+    this.pages.push(c);
+    this.ctx = c.getContext('2d');
+    this.x = 0; this.y = 0; this.rowH = 0;
+  }
+  alloc(w, h) {
+    if (this.x + w > this.size) { this.x = 0; this.y += this.rowH + ATLAS_GAP; this.rowH = 0; }
+    if (this.y + h > this.size) this.newPage();
+    const slot = { page: this.pages.length - 1, x: this.x, y: this.y };
+    this.x += w + ATLAS_GAP;
+    this.rowH = Math.max(this.rowH, h);
+    return slot;
+  }
+}
+
+/** Sprite pixels per world unit we can afford for this puzzle. */
+function maxSpriteScale(P) {
+  const area = (P.cw + 2 * P.pad) * (P.ch + 2 * P.pad) * P.pieces.length;
+  return Math.min(1, Math.sqrt(SPRITE_BUDGET_PX / area));
+}
+
+/**
+ * Renders all sprites at scale k into a fresh atlas. Work is chunked across
+ * frames so the UI never freezes. Resolves to the atlas, or null if cancelled.
+ */
+async function buildSprites(P, k, isCancelled, onProgress) {
+  const sw = Math.ceil((P.cw + 2 * P.pad) * k), sh = Math.ceil((P.ch + 2 * P.pad) * k);
+  const atlas = new Atlas(Math.max(2048, sw + ATLAS_GAP, sh + ATLAS_GAP));
+  const slots = new Array(P.pieces.length);
+  const shadowBlur = Math.max(1, P.s * 0.06 * k);
+  const chunk = 40;
+  for (let i = 0; i < P.pieces.length; i++) {
+    const piece = P.pieces[i];
+    const slot = atlas.alloc(sw, sh);
+    slots[i] = slot;
+    if (piece.locked) continue;                    // locked pieces never need a sprite
+    const ctx = atlas.pages[slot.page].getContext('2d');
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath(); ctx.rect(slot.x, slot.y, sw, sh); ctx.clip();
+    ctx.setTransform(k, 0, 0, k, slot.x + P.pad * k, slot.y + P.pad * k);
+    // Drop shadow: fill the silhouette with a shadow, then paint the face over it.
+    ctx.save();
+    ctx.shadowColor = 'rgba(25,35,60,.38)';
+    ctx.shadowBlur = shadowBlur;
+    ctx.shadowOffsetX = P.s * 0.012 * k;
+    ctx.shadowOffsetY = P.s * 0.03 * k;
+    ctx.fillStyle = '#8a93a6';
+    ctx.fill(piece.path);
+    ctx.restore();
+    drawPieceFace(ctx, P, piece, 1);
+    ctx.restore();
+    if (i % chunk === chunk - 1) {
+      if (onProgress) onProgress(i / P.pieces.length);
+      await nextFrame();
+      if (isCancelled()) return null;
+    }
+  }
+  return { atlas, slots, k, sw, sh };
+}
+
+/* =====================================================================
+   7. BOARD LAYOUT & SCATTERING
+   World units = pixels of the (downscaled) photo. The target frame sits
+   at (0,0)-(W,H); the board extends around it to the screen's aspect
+   ratio with enough room for all pieces outside the frame.
+   ===================================================================== */
+function computeBoard(P, viewW, viewH) {
+  const { W, H, s } = P;
+  const step = s * 1.3;
+  const need = P.pieces.length * step * step * 1.25;   // ring area for all pieces
+  const margin = s * 1.9;
+  const aspect = viewW / Math.max(1, viewH);
+  let bw = W + 2 * margin, bh = H + 2 * margin;
+  if (bw / bh < aspect) bw = bh * aspect; else bh = bw / aspect;
+  for (let i = 0; i < 200 && bw * bh - W * H < need; i++) { bw *= 1.04; bh *= 1.04; }
+  return { x: W / 2 - bw / 2, y: H / 2 - bh / 2, w: bw, h: bh };
+}
+
+/** Returns `count` scatter positions (cell top-left) around the frame. */
+function scatterSlots(P, board, count) {
+  const { W, H, cw, ch, s } = P;
+  const keepOut = s * 0.55;                       // gap kept between pieces and frame
+  let step = s * 1.3;
+  let slots = [];
+  for (let iter = 0; iter < 40; iter++) {
+    slots = [];
+    const halfW = cw / 2 + s * 0.15, halfH = ch / 2 + s * 0.15;
+    for (let y = board.y + halfH + s * 0.2; y <= board.y + board.h - halfH - s * 0.2; y += step) {
+      for (let x = board.x + halfW + s * 0.2; x <= board.x + board.w - halfW - s * 0.2; x += step) {
+        const overlaps = x + halfW > -keepOut && x - halfW < W + keepOut && y + halfH > -keepOut && y - halfH < H + keepOut;
+        if (!overlaps) slots.push({ x, y, d: Math.max(Math.abs(x - W / 2) - W / 2, Math.abs(y - H / 2) - H / 2) });
+      }
+    }
+    if (slots.length >= count) break;
+    step *= 0.93;
+  }
+  // Prefer slots near the frame, but randomise which ones get used.
+  slots.sort((a, b) => a.d - b.d);
+  const pool = shuffle(slots.slice(0, Math.min(slots.length, Math.ceil(count * 1.5))));
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const sl = pool[i % Math.max(1, pool.length)] || { x: board.x + cw, y: board.y + ch };
+    out.push({ x: sl.x - cw / 2 + rand(-0.12, 0.12) * step, y: sl.y - ch / 2 + rand(-0.12, 0.12) * step });
+  }
+  return out;
+}
+
+/* =====================================================================
+   8. GAME STATE
+   ===================================================================== */
+const game = {
+  P: null,              // puzzle geometry from buildPuzzle()
+  sprites: null,        // atlas data from buildSprites()
+  board: null,          // world rect of the play area
+  groups: [],           // loose groups, bottom → top draw order
+  placed: 0,
+  total: 0,
+  edgeOnly: false,
+  targetLayer: null,    // canvas: frame base + ghost grid + locked pieces
+  seamFade: 0,          // 0..1 cross-fade to the seamless photo at the end
+  completed: false,
+  token: 0,             // bumps on every new game to cancel async work
+  timer: { start: 0, accumulated: 0, running: false },
+};
+
+const view = { s: 1, tx: 0, ty: 0, fit: 1, min: 0.1, max: 4, cssW: 1, cssH: 1, dpr: 1 };
+let viewTween = null;
+
+function newGroup(pieces) {
+  const g = { pieces, hasEdge: false, locking: false };
+  for (const p of pieces) { p.group = g; if (p.edge) g.hasEdge = true; }
+  return g;
+}
+
+/* =====================================================================
+   9. RENDERING
+   ===================================================================== */
+const boardCanvas = $('#board');
+const bctx = boardCanvas.getContext('2d');
+let rafId = 0;
+
+function requestRender() {
+  if (!rafId) rafId = requestAnimationFrame(render);
+}
+
+function screenToWorld(x, y) {
+  return { x: (x - view.tx) / view.s, y: (y - view.ty) / view.s };
+}
+
+/** Builds the frame layer: card, ghost outlines; locked pieces are added later. */
+function createTargetLayer(P) {
+  const layer = makeCanvas(P.W, P.H);
+  const ctx = layer.getContext('2d');
+  ctx.fillStyle = '#f3f6fa';
+  ctx.fillRect(0, 0, P.W, P.H);
+  // Very faint version of the photo helps orientation without giving it away.
+  ctx.globalAlpha = 0.07;
+  ctx.drawImage(P.src, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = Math.max(1, P.s * 0.012);
+  ctx.strokeStyle = 'rgba(70,85,120,.20)';
+  ctx.setLineDash([P.s * 0.06, P.s * 0.05]);
+  ctx.stroke(P.ghost);
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(70,85,120,.28)';
+  ctx.lineWidth = Math.max(1, P.s * 0.02);
+  ctx.strokeRect(0, 0, P.W, P.H);
+  return layer;
+}
+
+function drawLockedPiece(piece) {
+  const P = game.P;
+  const ctx = game.targetLayer.getContext('2d');
+  ctx.save();
+  ctx.translate(piece.cx, piece.cy);
+  drawPieceFace(ctx, P, piece, 0.55);
+  ctx.restore();
+}
+
+/**
+ * Frame renderer. While a piece is being dragged and nothing else moves,
+ * everything except the dragged group is cached in `sceneCache`, so each
+ * drag frame is one blit plus a handful of sprites, whatever the piece count.
+ */
+let sceneCache = null;   // {canvas, s, tx, ty, group, w, h}
+
+function render(now) {
+  rafId = 0;
+  now = now || performance.now();
+  let animating = false;
+
+  if (viewTween) {
+    const t = clamp((now - viewTween.t0) / viewTween.dur, 0, 1), e = easeInOut(t);
+    view.s = viewTween.from.s + (viewTween.to.s - viewTween.from.s) * e;
+    view.tx = viewTween.from.tx + (viewTween.to.tx - viewTween.from.tx) * e;
+    view.ty = viewTween.from.ty + (viewTween.to.ty - viewTween.from.ty) * e;
+    if (t >= 1) viewTween = null; else animating = true;
+  }
+
+  const dragged = drag && drag.group;
+  if (dragged && game.sprites && !animating) {
+    const c = sceneCache;
+    const valid = c && c.group === dragged && c.s === view.s && c.tx === view.tx && c.ty === view.ty &&
+      c.w === boardCanvas.width && c.h === boardCanvas.height;
+    if (!valid) {
+      const canvas = (c && c.w === boardCanvas.width && c.h === boardCanvas.height) ? c.canvas : makeCanvas(boardCanvas.width, boardCanvas.height);
+      const busy = drawScene(canvas.getContext('2d'), now, dragged);
+      // Only keep the cache if nothing in it is still animating.
+      sceneCache = busy ? null : { canvas, s: view.s, tx: view.tx, ty: view.ty, group: dragged, w: canvas.width, h: canvas.height };
+      if (busy) { animating = drawScene(bctx, now, null) || animating; if (animating) requestRender(); return; }
+    }
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.drawImage(sceneCache.canvas, 0, 0);
+    setWorldTransform(bctx);
+    if (!(game.edgeOnly && !dragged.hasEdge)) animating = drawGroup(bctx, dragged, now) || animating;
+  } else {
+    sceneCache = null;
+    animating = drawScene(bctx, now, null) || animating;
+  }
+  if (animating) requestRender();
+}
+
+function setWorldTransform(ctx) {
+  const S = view.s * view.dpr;
+  ctx.setTransform(S, 0, 0, S, view.tx * view.dpr, view.ty * view.dpr);
+}
+
+/** Draws the whole board (optionally skipping one group). Returns true while animating. */
+function drawScene(ctx, now, skip) {
+  const P = game.P;
+  const dpr = view.dpr;
+  let animating = false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#dde4ec';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (!P || !game.targetLayer) return false;
+  setWorldTransform(ctx);
+
+  // Play area: a soft lighter panel so the board edges are visible.
+  const B = game.board;
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  roundRectPath(ctx, B.x, B.y, B.w, B.h, P.s * 0.6);
+  ctx.fill();
+
+  // Target frame with soft shadow.
+  const m = P.s * 0.16;
+  ctx.save();
+  ctx.shadowColor = 'rgba(35,50,80,.22)';
+  ctx.shadowBlur = 22 * dpr;
+  ctx.shadowOffsetY = 6 * dpr;
+  ctx.fillStyle = '#ffffff';
+  roundRectPath(ctx, -m, -m, P.W + 2 * m, P.H + 2 * m, m * 1.2);
+  ctx.fill();
+  ctx.restore();
+  ctx.drawImage(game.targetLayer, 0, 0, P.W, P.H);
+  if (game.seamFade > 0) {
+    ctx.globalAlpha = game.seamFade;
+    ctx.drawImage(P.src, 0, 0, P.W, P.H);
+    ctx.globalAlpha = 1;
+  }
+
+  // Loose pieces, bottom to top.
+  for (const g of game.groups) {
+    if (g === skip || (game.edgeOnly && !g.hasEdge)) continue;
+    if (drawGroup(ctx, g, now)) animating = true;
+  }
+  return animating;
+}
+
+/** Blits a group's sprites (with snap animation offsets). Returns true while animating. */
+function drawGroup(ctx, g, now) {
+  const sp = game.sprites, P = game.P;
+  if (!sp) return false;
+  let animating = false;
+  const left = -view.tx / view.s, top = -view.ty / view.s;
+  const right = left + view.cssW / view.s, bottom = top + view.cssH / view.s;
+  const dw = sp.sw / sp.k, dh = sp.sh / sp.k, pad = P.pad;
+  for (const p of g.pieces) {
+    let x = p.x - pad, y = p.y - pad;
+    if (p.anim) {
+      const t = (now - p.anim.t0) / p.anim.dur;
+      if (t >= 1) p.anim = null;
+      else { const f = 1 - easeOutCubic(t); x += p.anim.dx * f; y += p.anim.dy * f; animating = true; }
+    }
+    if (x > right || y > bottom || x + dw < left || y + dh < top) continue;   // off-screen
+    const slot = sp.slots[p.id];
+    ctx.drawImage(sp.atlas.pages[slot.page], slot.x, slot.y, sp.sw, sp.sh, x, y, dw, dh);
+  }
+  return animating;
+}
+
+/** Resizes the canvas backing store to the element size × devicePixelRatio. */
+function resizeCanvas() {
+  const rect = boardCanvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const oldW = view.cssW, oldH = view.cssH;
+  view.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  view.cssW = rect.width; view.cssH = rect.height;
+  boardCanvas.width = Math.round(rect.width * view.dpr);
+  boardCanvas.height = Math.round(rect.height * view.dpr);
+  if (game.board && game.P) {
+    // Keep the same world point at the centre, then refresh zoom limits.
+    view.tx += (rect.width - oldW) / 2;
+    view.ty += (rect.height - oldH) / 2;
+    updateZoomLimits();
+    view.s = clamp(view.s, view.min, view.max);
+    clampView();
+  }
+  requestRender();
+}
+
+/* =====================================================================
+   10. VIEW: ZOOM & PAN
+   ===================================================================== */
+function fitScaleFor(rect, pad = 0.96) {
+  return Math.min(view.cssW / rect.w, view.cssH / rect.h) * pad;
+}
+function viewFor(rect, pad) {
+  const s = fitScaleFor(rect, pad);
+  return { s, tx: view.cssW / 2 - (rect.x + rect.w / 2) * s, ty: view.cssH / 2 - (rect.y + rect.h / 2) * s };
+}
+function updateZoomLimits() {
+  view.fit = fitScaleFor(game.board);
+  view.min = view.fit * 0.75;
+  view.max = Math.max(view.fit * 4, 320 / game.P.s, 1.5);
+}
+function fitView(animated) {
+  const to = viewFor(game.board);
+  if (animated && !reducedMotion) {
+    viewTween = { from: { s: view.s, tx: view.tx, ty: view.ty }, to, t0: performance.now(), dur: 450 };
+  } else Object.assign(view, to);
+  requestRender();
+}
+/** Keeps the viewport centre inside the board so it can't get lost. */
+function clampView() {
+  const B = game.board;
+  if (!B) return;
+  const c = screenToWorld(view.cssW / 2, view.cssH / 2);
+  const cx = clamp(c.x, B.x, B.x + B.w), cy = clamp(c.y, B.y, B.y + B.h);
+  view.tx -= (cx - c.x) * view.s;
+  view.ty -= (cy - c.y) * view.s;
+}
+function zoomAt(sx, sy, factor) {
+  viewTween = null;
+  const s = clamp(view.s * factor, view.min, view.max);
+  const w = screenToWorld(sx, sy);
+  view.s = s;
+  view.tx = sx - w.x * s;
+  view.ty = sy - w.y * s;
+  clampView();
+  requestRender();
+  scheduleSpriteUpgrade();
+}
+
+/** After zooming in, re-render sprites sharper (in the background). */
+let upgradeTimer = 0, upgrading = false;
+function scheduleSpriteUpgrade() {
+  clearTimeout(upgradeTimer);
+  upgradeTimer = setTimeout(upgradeSprites, 350);
+}
+async function upgradeSprites() {
+  const P = game.P, sp = game.sprites;
+  if (!P || !sp || upgrading || game.completed) return;
+  const cap = maxSpriteScale(P);
+  const want = Math.min(cap, view.s * view.dpr * 1.15);
+  if (want < sp.k * 1.3 || sp.k >= cap * 0.98) return;
+  upgrading = true;
+  const token = game.token;
+  const next = await buildSprites(P, want, () => token !== game.token);
+  upgrading = false;
+  if (next && token === game.token) { game.sprites = next; sceneCache = null; requestRender(); }
+}
+
+/* =====================================================================
+   11. INTERACTION  (Pointer Events: drag pieces, pan, pinch, wheel)
+   ===================================================================== */
+const pointers = new Map();    // pointerId → {x, y}
+let drag = null;               // {group, pointerId, last:{x,y}}
+let pan = null;                // {pointerId, x, y, moved, t}
+let pinch = null;              // {dist, mid, s}
+let lastTap = { t: 0, x: 0, y: 0 };
+const hitCtx = makeCanvas(1, 1).getContext('2d');
+
+function localPoint(e) {
+  const r = boardCanvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+/** Finds the top-most loose piece under a world point. */
+function hitTest(w, touch) {
+  const P = game.P;
+  for (let gi = game.groups.length - 1; gi >= 0; gi--) {
+    const g = game.groups[gi];
+    if (g.locking || (game.edgeOnly && !g.hasEdge)) continue;
+    for (const p of g.pieces) {
+      const lx = w.x - p.x, ly = w.y - p.y;
+      if (lx < -P.pad || ly < -P.pad || lx > P.cw + P.pad || ly > P.ch + P.pad) continue;
+      if (hitCtx.isPointInPath(p.path, lx, ly)) return g;
+    }
+  }
+  // Touch is imprecise: fall back to a piece whose body is within a few px.
+  if (touch) {
+    const tol = 12 / view.s;
+    for (let gi = game.groups.length - 1; gi >= 0; gi--) {
+      const g = game.groups[gi];
+      if (g.locking || (game.edgeOnly && !g.hasEdge)) continue;
+      for (const p of g.pieces) {
+        const lx = w.x - p.x, ly = w.y - p.y;
+        if (lx > -tol && ly > -tol && lx < P.cw + tol && ly < P.ch + tol) return g;
+      }
+    }
+  }
+  return null;
+}
+
+function bringToFront(g) {
+  const i = game.groups.indexOf(g);
+  if (i >= 0 && i !== game.groups.length - 1) { game.groups.splice(i, 1); game.groups.push(g); }
+}
+
+function moveGroup(g, dx, dy) {
+  for (const p of g.pieces) { p.x += dx; p.y += dy; }
+}
+
+/** Keeps a dropped group (mostly) on the board. */
+function clampGroupToBoard(g) {
+  const P = game.P, B = game.board;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of g.pieces) {
+    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x + P.cw); maxY = Math.max(maxY, p.y + P.ch);
+  }
+  const keep = P.s * 0.5;
+  let dx = 0, dy = 0;
+  if (maxX < B.x + keep) dx = B.x + keep - maxX; else if (minX > B.x + B.w - keep) dx = B.x + B.w - keep - minX;
+  if (maxY < B.y + keep) dy = B.y + keep - maxY; else if (minY > B.y + B.h - keep) dy = B.y + B.h - keep - minY;
+  if (dx || dy) animateGroupBy(g, dx, dy, 200);
+}
+
+boardCanvas.addEventListener('pointerdown', (e) => {
+  if (!game.P) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  try { boardCanvas.setPointerCapture(e.pointerId); } catch {}
+  const pt = localPoint(e);
+  pointers.set(e.pointerId, pt);
+  audio.unlock();
+
+  if (pointers.size === 1) {
+    const g = game.completed ? null : hitTest(screenToWorld(pt.x, pt.y), e.pointerType !== 'mouse');
+    if (g) {
+      bringToFront(g);
+      drag = { group: g, pointerId: e.pointerId, last: screenToWorld(pt.x, pt.y) };
+      boardCanvas.classList.add('dragging');
+      hideHint();
+      requestRender();
+    } else {
+      pan = { pointerId: e.pointerId, x: pt.x, y: pt.y, moved: 0, t: performance.now(), sx: pt.x, sy: pt.y };
+      boardCanvas.classList.add('dragging');
+    }
+  } else if (pointers.size === 2 && !drag) {
+    pan = null;
+    const [a, b] = [...pointers.values()];
+    pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  }
+});
+
+boardCanvas.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  const pt = localPoint(e);
+  pointers.set(e.pointerId, pt);
+
+  if (drag && drag.pointerId === e.pointerId) {
+    const w = screenToWorld(pt.x, pt.y);
+    moveGroup(drag.group, w.x - drag.last.x, w.y - drag.last.y);
+    drag.last = w;
+    autoPanNearEdge(pt);
+    requestRender();
+  } else if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    view.tx += mid.x - pinch.mid.x;
+    view.ty += mid.y - pinch.mid.y;
+    zoomAt(mid.x, mid.y, dist / pinch.dist);
+    pinch.dist = dist; pinch.mid = mid;
+  } else if (pan && pan.pointerId === e.pointerId) {
+    viewTween = null;
+    view.tx += pt.x - pan.x;
+    view.ty += pt.y - pan.y;
+    pan.moved += Math.abs(pt.x - pan.x) + Math.abs(pt.y - pan.y);
+    pan.x = pt.x; pan.y = pt.y;
+    clampView();
+    requestRender();
+  }
+});
+
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (drag && drag.pointerId === e.pointerId) {
+    const g = drag.group;
+    drag = null;
+    if (!trySnap(g)) clampGroupToBoard(g);
+    requestRender();
+  }
+  if (pan && pan.pointerId === e.pointerId) {
+    // Double-tap / double-click on empty board → fit to screen.
+    const now = performance.now();
+    if (pan.moved < 8 && now - pan.t < 300) {
+      if (now - lastTap.t < 350 && Math.hypot(pan.sx - lastTap.x, pan.sy - lastTap.y) < 30) { fitView(true); lastTap.t = 0; }
+      else lastTap = { t: now, x: pan.sx, y: pan.sy };
+    }
+    pan = null;
+  }
+  if (pinch && pointers.size < 2) {
+    pinch = null;
+    // Continue panning with the remaining finger.
+    const [id, pt] = [...pointers.entries()][0] || [];
+    if (id !== undefined) pan = { pointerId: id, x: pt.x, y: pt.y, moved: 99, t: 0 };
+  }
+  if (!pointers.size) boardCanvas.classList.remove('dragging');
+}
+boardCanvas.addEventListener('pointerup', endPointer);
+boardCanvas.addEventListener('pointercancel', endPointer);
+boardCanvas.addEventListener('lostpointercapture', endPointer);
+boardCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+boardCanvas.addEventListener('wheel', (e) => {
+  if (!game.P) return;
+  e.preventDefault();
+  const pt = localPoint(e);
+  let dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+  if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5 && e.deltaMode === 0) {
+    // Horizontal trackpad scroll: pan instead of zoom.
+    view.tx -= e.deltaX; clampView(); requestRender(); return;
+  }
+  zoomAt(pt.x, pt.y, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)));
+}, { passive: false });
+
+/** While dragging a piece close to the screen edge, nudge the view. */
+function autoPanNearEdge(pt) {
+  const zone = 28, speed = 10;
+  let dx = 0, dy = 0;
+  if (pt.x < zone) dx = speed; else if (pt.x > view.cssW - zone) dx = -speed;
+  if (pt.y < zone) dy = speed; else if (pt.y > view.cssH - zone) dy = -speed;
+  if (!dx && !dy) return;
+  view.tx += dx; view.ty += dy;
+  clampView();
+  // Keep the dragged group under the finger.
+  const w = screenToWorld(pt.x, pt.y);
+  moveGroup(drag.group, w.x - drag.last.x, w.y - drag.last.y);
+  drag.last = w;
+}
+
+/* =====================================================================
+   12. SNAPPING LOGIC
+   A dropped group snaps (a) into its correct place in the frame, or
+   (b) onto a loose neighbour it matches, merging the two groups.
+   Joining a locked neighbour is the same as (a) and locks the group.
+   ===================================================================== */
+const SNAP_MS = 140;
+
+function snapTolerance() {
+  const P = game.P;
+  return clamp(Math.max(P.s * 0.24, 14 / view.s), 0, P.s * 0.42);
+}
+
+function animateGroupBy(g, dx, dy, dur = SNAP_MS) {
+  const now = performance.now();
+  for (const p of g.pieces) {
+    p.x += dx; p.y += dy;
+    p.anim = reducedMotion ? null : { dx: -dx, dy: -dy, t0: now, dur };
+  }
+  requestRender();
+}
+
+function neighbours(p) {
+  const P = game.P, out = [];
+  const at = (r, c) => P.pieces[r * P.cols + c];
+  if (p.r > 0) out.push(at(p.r - 1, p.c));
+  if (p.r < P.rows - 1) out.push(at(p.r + 1, p.c));
+  if (p.c > 0) out.push(at(p.r, p.c - 1));
+  if (p.c < P.cols - 1) out.push(at(p.r, p.c + 1));
+  return out;
+}
+
+/** Offset that would put piece p exactly in line with neighbour n. */
+function alignOffset(p, n) {
+  return { dx: n.x - (n.cx - p.cx) - p.x, dy: n.y - (n.cy - p.cy) - p.y };
+}
+
+function trySnap(g) {
+  const tol = snapTolerance();
+  // (a) Near its correct position in the frame?
+  const p0 = g.pieces[0];
+  const dx0 = p0.cx - p0.x, dy0 = p0.cy - p0.y;
+  if (Math.hypot(dx0, dy0) < tol) {
+    animateGroupBy(g, dx0, dy0);
+    lockGroup(g);
+    return true;
+  }
+  // (b) Next to a matching neighbour?
+  for (const p of g.pieces) {
+    for (const n of neighbours(p)) {
+      if (n.group === g) continue;
+      const { dx, dy } = alignOffset(p, n);
+      if (Math.hypot(dx, dy) >= tol) continue;
+      animateGroupBy(g, dx, dy);
+      if (n.locked) { lockGroup(g); return true; }
+      mergeInto(g, n.group);
+      absorbAlignedNeighbours(g);
+      audio.click(false);
+      return true;
+    }
+  }
+  return false;
+}
+
+function mergeInto(g, other) {
+  if (other === g || !other) return;
+  for (const p of other.pieces) { p.group = g; g.pieces.push(p); if (p.edge) g.hasEdge = true; }
+  const i = game.groups.indexOf(other);
+  if (i >= 0) game.groups.splice(i, 1);
+}
+
+/** After a merge, also join any other groups that now line up exactly. */
+function absorbAlignedNeighbours(g) {
+  const tight = game.P.s * 0.08;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of g.pieces) {
+      for (const n of neighbours(p)) {
+        if (n.group === g || n.locked) continue;
+        const { dx, dy } = alignOffset(p, n);
+        if (Math.hypot(dx, dy) < tight) {
+          animateGroupBy(n.group, -dx, -dy);
+          mergeInto(g, n.group);
+          changed = true;
+          break;
+        }
+      }
+      if (changed) break;
+    }
+  }
+}
+
+/** Locks a group: after the snap animation it is painted into the frame layer. */
+function lockGroup(g) {
+  g.locking = true;
+  audio.click(true);
+  for (const p of g.pieces) p.locked = true;
+  const commit = () => {
+    const i = game.groups.indexOf(g);
+    if (i < 0) return;
+    game.groups.splice(i, 1);
+    for (const p of g.pieces) { p.anim = null; p.x = p.cx; p.y = p.cy; drawLockedPiece(p); }
+    game.placed += g.pieces.length;
+    sceneCache = null;
+    updateProgress();
+    requestRender();
+    if (game.placed >= game.total) onComplete();
+  };
+  if (reducedMotion) commit(); else setTimeout(commit, SNAP_MS + 10);
+}
+
+/* =====================================================================
+   13. SOUND  (synthesised "click", no audio files)
+   ===================================================================== */
+const audio = {
+  ctx: null,
+  muted: false,
+  noise: null,
+  unlock() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { this.ctx = new AC(); } catch { return; }
+    const len = Math.floor(this.ctx.sampleRate * 0.05);
+    this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = this.noise.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+  },
+  click(strong) {
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    const ac = this.ctx, t = ac.currentTime;
+    // Short filtered noise = the "snap" transient.
+    const src = ac.createBufferSource();
+    src.buffer = this.noise;
+    const bp = ac.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = strong ? 2600 : 3200; bp.Q.value = 1.4;
+    const ng = ac.createGain();
+    ng.gain.setValueAtTime(strong ? 0.55 : 0.4, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    src.connect(bp).connect(ng).connect(ac.destination);
+    src.start(t);
+    // Tiny woody body tone.
+    const osc = ac.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(strong ? 720 : 900, t);
+    osc.frequency.exponentialRampToValueAtTime(strong ? 380 : 520, t + 0.06);
+    const og = ac.createGain();
+    og.gain.setValueAtTime(0.18, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    osc.connect(og).connect(ac.destination);
+    osc.start(t); osc.stop(t + 0.08);
+  },
+  fanfare() {
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    const ac = this.ctx, t0 = ac.currentTime;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'triangle'; o.frequency.value = f;
+      const t = t0 + i * 0.09;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o.connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + 0.55);
+    });
+  },
+};
+
+/* =====================================================================
+   14. COMPLETION  (seamless fade, confetti, result card)
+   ===================================================================== */
+function onComplete() {
+  if (game.completed) return;
+  game.completed = true;
+  stopTimer();
+  const P = game.P;
+  // Zoom to the finished picture and fade the seams away.
+  const pad = P.s * 0.4;
+  const to = viewFor({ x: -pad, y: -pad, w: P.W + 2 * pad, h: P.H + 2 * pad }, 0.92);
+  viewTween = reducedMotion ? null : { from: { s: view.s, tx: view.tx, ty: view.ty }, to, t0: performance.now(), dur: 700 };
+  if (reducedMotion) Object.assign(view, to);
+  const t0 = performance.now(), token = game.token;
+  const fade = (now) => {
+    if (token !== game.token) return;
+    game.seamFade = clamp((now - t0 - 250) / 700, 0, 1);
+    requestRender();
+    if (game.seamFade < 1) requestAnimationFrame(fade);
+  };
+  requestAnimationFrame(fade);
+  setTimeout(() => {
+    if (token !== game.token) return;
+    audio.fanfare();
+    confetti();
+  }, 450);
+  setTimeout(() => {
+    if (token !== game.token) return;
+    $('#resultTime').textContent = formatTime(elapsed());
+    $('#resultPieces').textContent = game.total;
+    $('#result').hidden = false;
+    $('#againBtn').focus();
+  }, 1300);
+}
+
+function confetti() {
+  const cv = $('#confetti');
+  cv.hidden = false;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  const colors = ['#5b6cff', '#ff7a59', '#ffd166', '#06d6a0', '#ef476f', '#8a5bff', '#2ec4ff'];
+  const N = reducedMotion ? 40 : Math.min(260, Math.round(W * H / 4500));
+  const parts = [];
+  for (let i = 0; i < N; i++) {
+    const fromLeft = i % 2 === 0;
+    parts.push({
+      x: fromLeft ? -10 : W + 10, y: H * rand(0.45, 0.85),
+      vx: (fromLeft ? 1 : -1) * rand(4, 11), vy: -rand(9, 17),
+      r: rand(0, Math.PI * 2), vr: rand(-0.25, 0.25),
+      w: rand(6, 11), h: rand(8, 15), c: colors[i % colors.length], round: Math.random() < 0.3,
+      wob: rand(0, 6),
+    });
+  }
+  const start = performance.now();
+  const step = (now) => {
+    const t = now - start;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    let alive = 0;
+    for (const p of parts) {
+      p.vy += 0.32; p.vx *= 0.985; p.vy *= 0.985;
+      p.x += p.vx + Math.sin(t / 180 + p.wob) * 0.6; p.y += p.vy; p.r += p.vr;
+      if (p.y < H + 30) alive++;
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c;
+      if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.w / 2, 0, 7); ctx.fill(); }
+      else ctx.fillRect(-p.w / 2, -p.h / 2 * Math.abs(Math.cos(t / 120 + p.wob)), p.w, p.h * Math.abs(Math.cos(t / 120 + p.wob)) + 1);
+      ctx.restore();
+    }
+    if (alive && t < 6000) requestAnimationFrame(step);
+    else { ctx.clearRect(0, 0, W, H); cv.hidden = true; }
+  };
+  requestAnimationFrame(step);
+}
+
+/* =====================================================================
+   15. UI: SCREENS, TOP BAR, TIMER
+   ===================================================================== */
+const screens = { landing: $('#landing'), setup: $('#setup'), game: $('#game') };
+const ui = { image: null, count: 100 };
+
+function showScreen(name) {
+  for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
+  if (name === 'game') resizeCanvas();
+}
+
+// ---- Timer ----
+function elapsed() {
+  const t = game.timer;
+  return t.accumulated + (t.running ? performance.now() - t.start : 0);
+}
+function startTimer() { game.timer = { start: performance.now(), accumulated: 0, running: true }; }
+function stopTimer() {
+  const t = game.timer;
+  if (t.running) { t.accumulated += performance.now() - t.start; t.running = false; }
+}
+document.addEventListener('visibilitychange', () => {
+  const t = game.timer;
+  if (!game.P || game.completed) return;
+  if (document.hidden && t.running) stopTimer();
+  else if (!document.hidden && !t.running && !screens.game.hidden) { t.start = performance.now(); t.running = true; }
+});
+setInterval(() => { if (!screens.game.hidden) $('#timer').textContent = formatTime(elapsed()); }, 250);
+
+function updateProgress() {
+  $('#progressText').textContent = `${game.placed} / ${game.total}`;
+  const pct = game.total ? (game.placed / game.total) * 100 : 0;
+  $('#progressBar').style.width = pct + '%';
+  $('#progressBarWrap').setAttribute('aria-valuenow', Math.round(pct));
+}
+
+// ---- Hint bubble ----
+let hintTimer = 0;
+function showHint(text, ms = 5000) {
+  const el = $('#hint');
+  el.textContent = text; el.hidden = false; el.style.opacity = 1;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(hideHint, ms);
+}
+function hideHint() {
+  const el = $('#hint');
+  if (el.hidden) return;
+  el.style.opacity = 0;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => { el.hidden = true; }, 500);
+}
+
+// ---- Landing: file input, drag & drop, sample ----
+const fileInput = $('#fileInput');
+$('#chooseBtn').addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+$('#dropzone').addEventListener('click', (e) => { if (!e.target.closest('button')) fileInput.click(); });
+$('#dropzone').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); fileInput.click(); } });
+fileInput.addEventListener('change', () => { const f = fileInput.files[0]; fileInput.value = ''; if (f) openFile(f); });
+$('#sampleBtn').addEventListener('click', (e) => { e.stopPropagation(); setImage(makeSampleImage()); });
+
+let dragDepth = 0;
+const isFileDrag = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+window.addEventListener('dragenter', (e) => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault(); dragDepth++;
+  $('#dropOverlay').hidden = false;
+  $('#dropzone').classList.add('drag');
+});
+window.addEventListener('dragover', (e) => { if (isFileDrag(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+window.addEventListener('dragleave', () => {
+  if (--dragDepth <= 0) { dragDepth = 0; $('#dropOverlay').hidden = true; $('#dropzone').classList.remove('drag'); }
+});
+window.addEventListener('drop', (e) => {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  dragDepth = 0; $('#dropOverlay').hidden = true; $('#dropzone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  if (!screens.game.hidden && game.P && !game.completed && game.placed > 0 && !confirm('Start a new puzzle with this photo?')) return;
+  openFile(f);
+});
+
+async function openFile(file) {
+  const busy = $('#landingBusy');
+  busy.hidden = false;
+  try {
+    const img = await loadImageFile(file);
+    setImage(img);
+  } catch (err) {
+    if (!err.friendly) console.error(err);
+    toast(err.friendly ? err.message : "Something went wrong opening that photo. Please try another one.");
+    if (screens.landing.hidden) goLanding();
+  } finally {
+    busy.hidden = true;
+  }
+}
+
+// ---- Setup screen ----
+function setImage(img) {
+  ui.image = img;
+  buildChips();
+  showScreen('setup');
+  drawPreview();
+  $('#startBtn').focus({ preventScroll: true });
+}
+
+function buildChips() {
+  const wrap = $('#chips');
+  wrap.textContent = '';
+  for (const n of DIFFICULTIES) {
+    const g = computeGrid(n, ui.image.width, ui.image.height);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(n === ui.count));
+    b.dataset.n = n;
+    b.innerHTML = `<b>${g.count}</b><small>${g.cols}×${g.rows}</small>`;
+    b.setAttribute('aria-label', `${g.count} pieces`);
+    b.addEventListener('click', () => {
+      ui.count = n;
+      for (const c of wrap.children) c.setAttribute('aria-checked', String(c === b));
+      drawPreview();
+    });
+    wrap.appendChild(b);
+  }
+}
+
+function drawPreview() {
+  const cv = $('#previewCanvas');
+  const img = ui.image;
+  const maxW = Math.max(160, Math.min(480, (cv.parentElement.clientWidth || 516) - 36)), maxH = Math.min(320, innerHeight * 0.38);
+  const sc = Math.min(maxW / img.width, maxH / img.height);
+  const w = Math.round(img.width * sc), h = Math.round(img.height * sc);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = w * dpr; cv.height = h * dpr;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, w, h);
+  const g = computeGrid(ui.count, img.width, img.height);
+  ctx.strokeStyle = 'rgba(255,255,255,.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let c = 1; c < g.cols; c++) { const x = Math.round((c * w) / g.cols) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+  for (let r = 1; r < g.rows; r++) { const y = Math.round((r * h) / g.rows) + 0.5; ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
+}
+
+$('#backBtn').addEventListener('click', goLanding);
+$('#startBtn').addEventListener('click', () => { audio.unlock(); startGame(); });
+
+function goLanding() {
+  game.token++;
+  game.P = null; game.sprites = null; game.groups = []; game.targetLayer = null; game.board = null;
+  stopTimer();
+  $('#result').hidden = true;
+  $('#peek').hidden = true;
+  showScreen('landing');
+}
+
+// ---- Game lifecycle ----
+async function startGame() {
+  const token = ++game.token;
+  const img = ui.image;
+  const grid = computeGrid(ui.count, img.width, img.height);
+  $('#result').hidden = true;
+  game.P = null; game.board = null;
+  showScreen('game');
+  const loader = $('#loader');
+  loader.hidden = false;
+  $('#loaderText').textContent = 'Cutting pieces…';
+  game.P = null; game.sprites = null; game.groups = []; game.targetLayer = null;
+  game.completed = false; game.seamFade = 0; game.placed = 0; game.total = grid.count;
+  game.edgeOnly = false; $('#edgeBtn').setAttribute('aria-pressed', 'false');
+  stopTimer(); game.timer = { start: 0, accumulated: 0, running: false };
+  $('#timer').textContent = '00:00';
+  updateProgress();
+  await nextFrame();
+  if (token !== game.token) return;
+
+  const P = buildPuzzle(img, grid.cols, grid.rows);
+  const board = computeBoard(P, view.cssW, view.cssH);
+  game.board = board;
+  game.P = P;
+  updateZoomLimits();
+  fitView(false);
+
+  // Initial sprite resolution: what the fitted view needs, a bit sharper.
+  const k = Math.min(maxSpriteScale(P), Math.max(0.05, view.s * view.dpr * 1.6));
+  const sprites = await buildSprites(P, k, () => token !== game.token, (f) => {
+    $('#loaderText').textContent = `Cutting pieces… ${Math.round(f * 100)}%`;
+  });
+  if (!sprites || token !== game.token) return;
+  game.sprites = sprites;
+  game.targetLayer = createTargetLayer(P);
+
+  // Every piece starts as its own group, scattered around the frame.
+  const slots = scatterSlots(P, board, P.pieces.length);
+  const order = shuffle(P.pieces.slice());
+  order.forEach((p, i) => { p.x = slots[i].x; p.y = slots[i].y; });
+  game.groups = order.map((p) => newGroup([p]));
+
+  loader.hidden = true;
+  startTimer();
+  requestRender();
+  const touch = matchMedia('(pointer: coarse)').matches;
+  showHint(touch ? 'Drag pieces into the frame · pinch to zoom' : 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
+}
+
+function rescatter() {
+  const P = game.P;
+  if (!P || game.completed) return;
+  const groups = game.groups.filter((g) => !g.locking);
+  const slots = scatterSlots(P, game.board, groups.length);
+  shuffle(groups).forEach((g, i) => {
+    const p0 = g.pieces[0];
+    animateGroupBy(g, slots[i].x - p0.x, slots[i].y - p0.y, 380);
+    clampGroupToBoard(g);
+  });
+  requestRender();
+}
+
+// ---- Top bar buttons ----
+$('#edgeBtn').addEventListener('click', (e) => {
+  game.edgeOnly = !game.edgeOnly;
+  e.currentTarget.setAttribute('aria-pressed', String(game.edgeOnly));
+  if (game.edgeOnly) showHint('Showing edge pieces only', 2000);
+  sceneCache = null;
+  requestRender();
+});
+$('#scatterBtn').addEventListener('click', rescatter);
+$('#newBtn').addEventListener('click', () => {
+  if (game.P && !game.completed && game.placed > 0 && !confirm('Leave this puzzle and choose a new photo?')) return;
+  goLanding();
+});
+$('#againBtn').addEventListener('click', () => { $('#result').hidden = true; startGame(); });
+$('#resultNewBtn').addEventListener('click', goLanding);
+
+// Mute toggle (remembered per browser when storage is available).
+function setMuted(m) {
+  audio.muted = m;
+  const btn = $('#muteBtn');
+  btn.setAttribute('aria-pressed', String(m));
+  btn.setAttribute('aria-label', m ? 'Unmute sound' : 'Mute sound');
+  btn.title = m ? 'Unmute sound' : 'Mute sound';
+  btn.querySelector('.snd-on').toggleAttribute('hidden', m);
+  btn.querySelector('.snd-off').toggleAttribute('hidden', !m);
+  try { localStorage.setItem('jigsaw-muted', m ? '1' : '0'); } catch {}
+}
+try { setMuted(localStorage.getItem('jigsaw-muted') === '1'); } catch { setMuted(false); }
+$('#muteBtn').addEventListener('click', () => { audio.unlock(); setMuted(!audio.muted); if (!audio.muted) audio.click(false); });
+
+// Hold-to-peek preview.
+const peekBtn = $('#peekBtn');
+function showPeek() {
+  if (!game.P) return;
+  const P = game.P, cv = $('#peekCanvas');
+  const sc = Math.min(1, 1400 / Math.max(P.W, P.H));
+  if (cv.width !== Math.round(P.W * sc) || cv.dataset.token !== String(game.token)) {
+    cv.width = Math.round(P.W * sc); cv.height = Math.round(P.H * sc);
+    cv.getContext('2d').drawImage(P.src, 0, 0, cv.width, cv.height);
+    cv.dataset.token = String(game.token);
+  }
+  $('#peek').hidden = false;
+  peekBtn.setAttribute('aria-pressed', 'true');
+}
+function hidePeek() { $('#peek').hidden = true; peekBtn.removeAttribute('aria-pressed'); }
+peekBtn.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  try { peekBtn.setPointerCapture(e.pointerId); } catch {}
+  showPeek();
+});
+peekBtn.addEventListener('pointerup', hidePeek);
+peekBtn.addEventListener('pointercancel', hidePeek);
+peekBtn.addEventListener('lostpointercapture', hidePeek);
+peekBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+peekBtn.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); showPeek(); } });
+peekBtn.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') hidePeek(); });
+window.addEventListener('blur', hidePeek);
+
+// Resize handling.
+new ResizeObserver(() => { if (!screens.game.hidden) resizeCanvas(); }).observe($('#boardWrap'));
+window.addEventListener('resize', () => { if (!screens.setup.hidden && ui.image) drawPreview(); });
+
+showScreen('landing');
+</script>
+</body>
+</html>
