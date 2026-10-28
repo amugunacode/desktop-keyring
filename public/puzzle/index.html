@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#dde4ec">
-<meta name="description" content="Turn any photo into a jigsaw puzzle and solve it in your browser. Your photo never leaves your device.">
-<title>Photo Jigsaw</title>
+<meta name="description" content="사진을 직소 퍼즐로 만들어 브라우저에서 바로 맞춰 보세요. Turn any photo into a jigsaw puzzle and solve it in your browser.">
+<title>사진 직소 퍼즐 · Photo Jigsaw</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%235b6cff' d='M8 14h14a7 7 0 1 1 14 0h14v14a7 7 0 1 0 0 14v14H36a7 7 0 1 0-14 0H8V42a7 7 0 1 1 0-14z'/%3E%3C/svg%3E">
 <style>
 /* =====================================================================
@@ -124,8 +124,8 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 .tool:active{background:#e5e9f3}
 .tool[aria-pressed="true"]{background:#eef0ff;color:var(--accent)}
 .tool svg{width:21px;height:21px;flex:none}
-.tool span{display:none}
-@media (min-width:820px){.tool span{display:inline}}
+.tool .bi{display:none}
+@media (min-width:820px){.tool .bi{display:inline-flex}}
 @media (max-width:380px){.tool{min-width:36px;padding:0 6px}.stats{gap:8px}.timer{font-size:.95rem;padding:4px 7px}}
 
 .board-wrap{position:relative;flex:1;min-height:0;background:var(--bg)}
@@ -134,8 +134,8 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 .loader{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-2);font-weight:600;background:var(--bg);z-index:2}
 .hint{
   position:absolute;left:50%;bottom:calc(16px + var(--safe-bottom));transform:translateX(-50%);
-  background:rgba(29,36,51,.82);color:#fff;font-size:.85rem;padding:8px 14px;border-radius:99px;white-space:nowrap;
-  pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;
+  background:rgba(29,36,51,.82);color:#fff;font-size:.85rem;padding:7px 16px;border-radius:18px;width:max-content;
+  pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 32px);text-align:center;
 }
 
 /* Hold-to-peek overlay */
@@ -163,10 +163,33 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
   display:flex;gap:10px;align-items:flex-start;transition:opacity .25s,transform .25s;pointer-events:none;font-size:.95rem
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
+.toast .bi{align-items:flex-start}
 .toast::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent-2);margin-top:7px}
 
 /* Full-window drop hint */
 .drop-overlay{position:fixed;inset:0;z-index:8;background:rgba(91,108,255,.18);border:4px dashed var(--accent);pointer-events:none;display:grid;place-items:center;font-weight:750;font-size:1.3rem;color:var(--accent)}
+
+/* Bilingual text: Korean first, English underneath in a lighter, smaller line */
+.en{display:block;font-size:.78em;font-weight:500;opacity:.68;letter-spacing:0}
+.bi{display:inline-flex;flex-direction:column;align-items:center;line-height:1.2}
+.bi .en{font-size:.74em}
+h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing:.02em}
+.setup h2 .en{font-size:.72em;margin-top:2px}
+.result h2 .en{font-size:.62em;margin-top:2px}
+.sub .en,.privacy .en{margin-top:2px}
+.dz-title .en{font-size:.72em;margin-top:2px}
+.dz-hint .en{font-size:.9em}
+.tool .bi{align-items:flex-start;line-height:1.1}
+.tool .bi .en{font-size:.72em}
+.btn{line-height:1.2}
+
+/* Resume card */
+.resume{display:flex;align-items:center;gap:12px;background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:12px;margin:0 0 16px;text-align:left}
+.resume-thumb{width:72px;height:54px;border-radius:10px;object-fit:cover;background:#eef1f6;flex:none}
+.resume-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.resume-info .bi{align-items:flex-start}
+.resume-info small{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.resume .btn{padding:10px 18px;flex:none}
 
 @media (prefers-reduced-motion:reduce){.logo{animation:none}*{transition-duration:.01ms!important}}
 </style>
@@ -181,32 +204,40 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 <section id="landing" class="screen landing">
   <div class="hero">
     <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path fill="#5b6cff" d="M8 14h14a7 7 0 1 1 14 0h14v14a7 7 0 1 0 0 14v14H36a7 7 0 1 0-14 0H8V42a7 7 0 1 1 0-14z"/><path fill="#ff7a59" d="M36 42a7 7 0 1 0-14 0H8v14h42V42a7 7 0 1 1 0-14v14z" opacity=".9"/></svg>
-    <h1>Photo Jigsaw</h1>
-    <p class="sub">Turn any photo into a jigsaw puzzle and solve it right here.</p>
-    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose or drop a photo">
+    <h1>사진 직소 퍼즐<span class="en">Photo Jigsaw</span></h1>
+    <p class="sub">사진을 직소 퍼즐로 바꿔 바로 맞춰 보세요.<span class="en">Turn any photo into a jigsaw puzzle and solve it right here.</span></p>
+    <div id="resumeCard" class="resume" hidden>
+      <canvas id="resumeThumb" class="resume-thumb" width="96" height="72"></canvas>
+      <div class="resume-info">
+        <b class="bi"><span>이어서 하기</span><span class="en">Continue your puzzle</span></b>
+        <small id="resumeMeta"></small>
+      </div>
+      <button class="btn primary" id="resumeBtn" type="button"><span class="bi"><span>이어하기</span><span class="en">Resume</span></span></button>
+    </div>
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="사진 선택 또는 끌어다 놓기 · Choose or drop a photo">
       <div class="dz-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></div>
-      <div class="dz-title">Drop a photo here</div>
-      <div class="dz-hint">JPG, PNG, WEBP or HEIC (where your browser supports it)</div>
+      <div class="dz-title">여기에 사진을 끌어다 놓으세요<span class="en">Drop a photo here</span></div>
+      <div class="dz-hint">JPG, PNG, WEBP, HEIC (브라우저가 지원하는 경우)<span class="en">JPG, PNG, WEBP or HEIC (where your browser supports it)</span></div>
       <div class="row">
         <button class="btn primary" id="chooseBtn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-5 5m5-5 5 5M4 20h16"/></svg>Choose photo</button>
-        <button class="btn ghost" id="sampleBtn" type="button">Try a sample</button>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-5 5m5-5 5 5M4 20h16"/></svg><span class="bi"><span>사진 선택</span><span class="en">Choose photo</span></span></button>
+        <button class="btn ghost" id="sampleBtn" type="button"><span class="bi"><span>샘플로 해보기</span><span class="en">Try a sample</span></span></button>
       </div>
-      <div id="landingBusy" class="busy" hidden><div><div class="spinner"></div>Opening photo…</div></div>
+      <div id="landingBusy" class="busy" hidden><div><div class="spinner"></div><span class="bi"><span>사진 여는 중…</span><span class="en">Opening photo…</span></span></div></div>
     </div>
     <input type="file" id="fileInput" accept="image/*,.heic,.heif" hidden>
-    <p class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Your photo stays on your device. Nothing is uploaded.</p>
+    <p class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>사진은 이 기기에만 저장되며 어디에도 업로드되지 않습니다.<span class="en">Your photo stays on this device. Nothing is uploaded.</span></p>
   </div>
 </section>
 
 <!-- Difficulty picker -->
 <section id="setup" class="screen setup" hidden>
   <div class="setup-card">
-    <button class="back" id="backBtn" type="button">← Back</button>
-    <canvas id="previewCanvas" class="preview" width="480" height="320" aria-label="Photo preview with the piece grid"></canvas>
-    <h2>How many pieces?</h2>
-    <div class="chips" id="chips" role="radiogroup" aria-label="Number of pieces"></div>
-    <div class="actions"><button class="btn primary big" id="startBtn" type="button">Start puzzle</button></div>
+    <button class="back" id="backBtn" type="button">← 뒤로 · Back</button>
+    <canvas id="previewCanvas" class="preview" width="480" height="320" aria-label="조각 격자가 표시된 사진 미리보기 · Photo preview with the piece grid"></canvas>
+    <h2>몇 조각으로 할까요?<span class="en">How many pieces?</span></h2>
+    <div class="chips" id="chips" role="radiogroup" aria-label="조각 수 · Number of pieces"></div>
+    <div class="actions"><button class="btn primary big" id="startBtn" type="button"><span class="bi"><span>퍼즐 시작</span><span class="en">Start puzzle</span></span></button></div>
   </div>
 </section>
 
@@ -214,28 +245,28 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 <section id="game" class="screen" hidden>
   <header class="topbar">
     <div class="stats">
-      <div class="timer" id="timer" aria-label="Elapsed time">00:00</div>
+      <div class="timer" id="timer" aria-label="경과 시간 · Elapsed time">00:00</div>
       <div class="progress">
         <span class="progress-text" id="progressText">0 / 0</span>
-        <div class="bar" role="progressbar" aria-label="Pieces placed" id="progressBarWrap"><i id="progressBar"></i></div>
+        <div class="bar" role="progressbar" aria-label="맞춘 조각 · Pieces placed" id="progressBarWrap"><i id="progressBar"></i></div>
       </div>
     </div>
     <div class="tools">
-      <button class="tool" id="peekBtn" type="button" title="Hold to preview the full image" aria-label="Hold to preview">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Preview</span></button>
-      <button class="tool" id="edgeBtn" type="button" aria-pressed="false" title="Show edge pieces only" aria-label="Edge pieces only">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1" stroke-dasharray="2 2.2"/></svg><span>Edges</span></button>
-      <button class="tool" id="scatterBtn" type="button" title="Re-scatter loose pieces" aria-label="Re-scatter pieces">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg><span>Re-scatter</span></button>
-      <button class="tool" id="muteBtn" type="button" aria-pressed="false" title="Mute sound" aria-label="Mute sound">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="snd-off" d="m23 9-6 6m0-6 6 6" hidden/></svg><span>Sound</span></button>
-      <button class="tool" id="newBtn" type="button" title="Start over with a new photo" aria-label="New photo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><span>New photo</span></button>
+      <button class="tool" id="peekBtn" type="button" title="길게 눌러 전체 그림 보기 · Hold to preview the full image" aria-label="길게 눌러 미리보기 · Hold to preview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span class="bi"><span>미리보기</span><span class="en">Preview</span></span></button>
+      <button class="tool" id="edgeBtn" type="button" aria-pressed="false" title="테두리 조각만 보기 · Show edge pieces only" aria-label="테두리 조각만 · Edge pieces only">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1" stroke-dasharray="2 2.2"/></svg><span class="bi"><span>테두리</span><span class="en">Edges</span></span></button>
+      <button class="tool" id="scatterBtn" type="button" title="남은 조각 다시 흩기 · Re-scatter loose pieces" aria-label="다시 흩기 · Re-scatter pieces">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg><span class="bi"><span>다시 흩기</span><span class="en">Re-scatter</span></span></button>
+      <button class="tool" id="muteBtn" type="button" aria-pressed="false" title="소리 끄기 · Mute sound" aria-label="소리 끄기 · Mute sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="snd-off" d="m23 9-6 6m0-6 6 6" hidden/></svg><span class="bi"><span>소리</span><span class="en">Sound</span></span></button>
+      <button class="tool" id="newBtn" type="button" title="새 사진으로 시작 (진행 상황은 저장됨) · Start with a new photo (progress is saved)" aria-label="새 사진 · New photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg><span class="bi"><span>새 사진</span><span class="en">New photo</span></span></button>
     </div>
   </header>
   <div class="board-wrap" id="boardWrap">
-    <canvas id="board" aria-label="Puzzle board"></canvas>
-    <div class="loader" id="loader" hidden><div><div class="spinner"></div><span id="loaderText">Cutting pieces…</span></div></div>
+    <canvas id="board" aria-label="퍼즐 보드 · Puzzle board"></canvas>
+    <div class="loader" id="loader" hidden><div><div class="spinner"></div><span id="loaderText" class="bi"></span></div></div>
     <div class="hint" id="hint" hidden></div>
   </div>
 </section>
@@ -246,20 +277,20 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 <div class="modal" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
   <div class="result">
     <div class="badge" aria-hidden="true">🎉</div>
-    <h2 id="resultTitle">Puzzle complete!</h2>
+    <h2 id="resultTitle">퍼즐 완성!<span class="en">Puzzle complete!</span></h2>
     <div class="result-stats">
-      <div><b id="resultTime">00:00</b><small>time</small></div>
-      <div><b id="resultPieces">0</b><small>pieces</small></div>
+      <div><b id="resultTime">00:00</b><small>시간 · time</small></div>
+      <div><b id="resultPieces">0</b><small>조각 · pieces</small></div>
     </div>
     <div class="row">
-      <button class="btn primary" id="againBtn" type="button">Play again</button>
-      <button class="btn ghost" id="resultNewBtn" type="button">New photo</button>
+      <button class="btn primary" id="againBtn" type="button"><span class="bi"><span>다시 하기</span><span class="en">Play again</span></span></button>
+      <button class="btn ghost" id="resultNewBtn" type="button"><span class="bi"><span>새 사진</span><span class="en">New photo</span></span></button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="drop-overlay" id="dropOverlay" hidden>Drop your photo to start</div>
+<div class="toast" id="toast" role="status" aria-live="polite"><div class="bi" id="toastMsg"></div></div>
+<div class="drop-overlay" id="dropOverlay" hidden><span class="bi"><span>사진을 놓으면 시작합니다</span><span class="en">Drop your photo to start</span></span></div>
 
 <script>
 'use strict';
@@ -304,17 +335,27 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/** Fills an element with bilingual text: Korean line, then a smaller English line. */
+function setBi(el, ko, en) {
+  const k = document.createElement('span'), e = document.createElement('span');
+  k.textContent = ko; e.textContent = en; e.className = 'en';
+  el.replaceChildren(k, e);
+}
+/** Bilingual text for attributes and native dialogs. */
+const biText = (ko, en, sep = ' · ') => ko + sep + en;
+
 let toastTimer = 0;
-function toast(msg, ms = 4200) {
+function toast(ko, en, ms = 4500) {
   const el = $('#toast');
-  el.textContent = msg;
+  setBi($('#toastMsg'), ko, en);
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
-function friendlyError(msg) {
-  const e = new Error(msg);
+function friendlyError(ko, en) {
+  const e = new Error(en);
   e.friendly = true;
+  e.ko = ko; e.en = en;
   return e;
 }
 
@@ -386,8 +427,8 @@ function decodeBlob(blob) {
 function normalizeImage(img, orientation) {
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
-  if (!w || !h) throw friendlyError("We couldn't read that image.");
-  if (Math.min(w, h) < MIN_EDGE) throw friendlyError('That image is too small for a puzzle. Try a bigger photo.');
+  if (!w || !h) throw friendlyError('이미지를 읽을 수 없습니다.', "We couldn't read that image.");
+  if (Math.min(w, h) < MIN_EDGE) throw friendlyError('퍼즐로 만들기엔 사진이 너무 작습니다. 더 큰 사진을 골라 주세요.', 'That image is too small for a puzzle. Try a bigger photo.');
   const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
   const dw = Math.round(w * scale), dh = Math.round(h * scale);
   const swap = orientation >= 5 && orientation <= 8;
@@ -408,19 +449,19 @@ function normalizeImage(img, orientation) {
 }
 
 async function loadImageFile(file) {
-  if (!file) throw friendlyError('No file selected.');
+  if (!file) throw friendlyError('선택한 파일이 없습니다.', 'No file selected.');
   const name = file.name || '';
   const looksLikeImage = (file.type && file.type.startsWith('image/')) || IMAGE_EXT.test(name);
-  if (!looksLikeImage) throw friendlyError("That file doesn't look like a photo. Please choose a JPG, PNG, WEBP or HEIC image.");
+  if (!looksLikeImage) throw friendlyError('사진 파일이 아닌 것 같습니다. JPG, PNG, WEBP, HEIC 이미지를 골라 주세요.', "That file doesn't look like a photo. Please choose a JPG, PNG, WEBP or HEIC image.");
   const isHeic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(name);
   const [decoded, orientation] = await Promise.all([
     decodeBlob(file).catch(() => null),
     readExifOrientation(file).catch(() => 1),
   ]);
   if (!decoded) {
-    throw friendlyError(isHeic
-      ? "This browser can't open HEIC photos. Try Safari, or convert the photo to JPG first."
-      : "We couldn't open that image. It may be damaged or in an unsupported format.");
+    throw isHeic
+      ? friendlyError('이 브라우저는 HEIC 사진을 열 수 없습니다. Safari를 쓰거나 JPG로 바꿔 주세요.', "This browser can't open HEIC photos. Try Safari, or convert the photo to JPG first.")
+      : friendlyError('이미지를 열 수 없습니다. 파일이 손상됐거나 지원하지 않는 형식일 수 있습니다.', "We couldn't open that image. It may be damaged or in an unsupported format.");
   }
   try {
     const manual = orientation > 1 && !(await browserAutoOrients());
@@ -578,7 +619,11 @@ function edgePoints(p, x0, y0, ux, uy, len, vx, vy, depth) {
   ];
 }
 
-function buildPuzzle(src, cols, rows) {
+/**
+ * `savedEdges` (optional) restores the exact edge shapes of a saved game;
+ * the parameters actually used are kept in P.edges for saving.
+ */
+function buildPuzzle(src, cols, rows, savedEdges) {
   const W = src.width, H = src.height;
   const cw = W / cols, ch = H / rows;
   const s = Math.min(cw, ch);          // nominal piece size
@@ -587,11 +632,17 @@ function buildPuzzle(src, cols, rows) {
   // Interior edges: hEdges[r][c] lies on y = r*ch (1 <= r < rows),
   //                 vEdges[r][c] lies on x = c*cw (1 <= c < cols).
   const hEdges = [], vEdges = [];
+  const edges = [];
+  const nextParams = () => {
+    const p = savedEdges ? savedEdges[edges.length] : randomEdgeParams();
+    edges.push(p);
+    return p;
+  };
   for (let r = 0; r < rows; r++) {
     hEdges[r] = []; vEdges[r] = [];
     for (let c = 0; c < cols; c++) {
-      if (r > 0) hEdges[r][c] = edgePoints(randomEdgeParams(), c * cw, r * ch, 1, 0, cw, 0, 1, s);
-      if (c > 0) vEdges[r][c] = edgePoints(randomEdgeParams(), c * cw, r * ch, 0, 1, ch, 1, 0, s);
+      if (r > 0) hEdges[r][c] = edgePoints(nextParams(), c * cw, r * ch, 1, 0, cw, 0, 1, s);
+      if (c > 0) vEdges[r][c] = edgePoints(nextParams(), c * cw, r * ch, 0, 1, ch, 1, 0, s);
     }
   }
 
@@ -635,7 +686,7 @@ function buildPuzzle(src, cols, rows) {
     if (vEdges[r][c]) ghostEdge(vEdges[r][c]);
   }
 
-  return { src, W, H, cols, rows, cw, ch, s, pad, pieces, ghost };
+  return { src, W, H, cols, rows, cw, ch, s, pad, pieces, ghost, edges };
 }
 
 /* =====================================================================
@@ -1227,6 +1278,7 @@ function endPointer(e) {
       if (overlapsFrame(g)) wrongSpot(g);
       clampGroupToBoard(g);
     }
+    scheduleSave();
     requestRender();
   }
   if (pan && pan.pointerId === e.pointerId) {
@@ -1399,7 +1451,7 @@ function wrongSpot(g) {
   for (const p of g.pieces) p.anim = { shake: amp, t0: now, dur: 380 };
   if (!game.wrongHintShown) {
     game.wrongHintShown = true;
-    showHint("Not quite — pieces stick when they're in the right spot", 3500);
+    showHint('여기가 아니에요 — 맞는 자리에 가면 조각이 달라붙어요', "Not quite — pieces stick when they're in the right spot", 3500);
   }
   requestRender();
 }
@@ -1456,6 +1508,7 @@ function lockGroup(g) {
     updateProgress();
     requestRender();
     if (game.placed >= game.total) onComplete();
+    else scheduleSave();
   };
   if (reducedMotion) commit(); else setTimeout(commit, SNAP_MS + 10);
 }
@@ -1549,6 +1602,7 @@ function onComplete() {
   if (game.completed) return;
   game.completed = true;
   stopTimer();
+  clearSave();
   const P = game.P;
   // Zoom to the finished picture and fade the seams away.
   const pad = P.s * 0.4;
@@ -1644,6 +1698,7 @@ function stopTimer() {
 document.addEventListener('visibilitychange', () => {
   const t = game.timer;
   if (!game.P || game.completed) return;
+  if (document.hidden) saveNow();
   if (document.hidden && t.running) stopTimer();
   else if (!document.hidden && !t.running && !screens.game.hidden) { t.start = performance.now(); t.running = true; }
 });
@@ -1663,9 +1718,9 @@ function bumpProgress() {
 
 // ---- Hint bubble ----
 let hintTimer = 0;
-function showHint(text, ms = 5000) {
+function showHint(ko, en, ms = 5000) {
   const el = $('#hint');
-  el.textContent = text; el.hidden = false; el.style.opacity = 1;
+  setBi(el, ko, en); el.hidden = false; el.style.opacity = 1;
   clearTimeout(hintTimer);
   hintTimer = setTimeout(hideHint, ms);
 }
@@ -1703,7 +1758,7 @@ window.addEventListener('drop', (e) => {
   dragDepth = 0; $('#dropOverlay').hidden = true; $('#dropzone').classList.remove('drag');
   const f = e.dataTransfer.files[0];
   if (!f) return;
-  if (!screens.game.hidden && game.P && !game.completed && game.placed > 0 && !confirm('Start a new puzzle with this photo?')) return;
+  if (!screens.game.hidden) saveNow();
   openFile(f);
 });
 
@@ -1715,7 +1770,8 @@ async function openFile(file) {
     setImage(img);
   } catch (err) {
     if (!err.friendly) console.error(err);
-    toast(err.friendly ? err.message : "Something went wrong opening that photo. Please try another one.");
+    if (err.friendly) toast(err.ko, err.en);
+    else toast('사진을 여는 중 문제가 생겼습니다. 다른 사진을 골라 주세요.', 'Something went wrong opening that photo. Please try another one.');
     if (screens.landing.hidden) goLanding();
   } finally {
     busy.hidden = true;
@@ -1743,7 +1799,7 @@ function buildChips() {
     b.setAttribute('aria-checked', String(n === ui.count));
     b.dataset.n = n;
     b.innerHTML = `<b>${g.count}</b><small>${g.cols}×${g.rows}</small>`;
-    b.setAttribute('aria-label', `${g.count} pieces`);
+    b.setAttribute('aria-label', biText(`${g.count}조각`, `${g.count} pieces`));
     b.addEventListener('click', () => {
       ui.count = n;
       for (const c of wrap.children) c.setAttribute('aria-checked', String(c === b));
@@ -1776,7 +1832,14 @@ function drawPreview() {
 }
 
 $('#backBtn').addEventListener('click', goLanding);
-$('#startBtn').addEventListener('click', () => { audio.unlock(); startGame(); });
+$('#startBtn').addEventListener('click', () => {
+  const s = ui.save && ui.save.state;
+  if (s && (s.locked.length > 0 || s.elapsed > 60000) &&
+      !confirm(biText(`저장된 퍼즐(${s.locked.length}/${s.total})이 새 퍼즐로 바뀝니다. 계속할까요?`,
+        `Your saved puzzle (${s.locked.length}/${s.total}) will be replaced. Continue?`, '\n\n'))) return;
+  audio.unlock();
+  startGame();
+});
 
 function goLanding() {
   game.token++;
@@ -1785,19 +1848,24 @@ function goLanding() {
   $('#result').hidden = true;
   $('#peek').hidden = true;
   showScreen('landing');
+  refreshResumeCard();
 }
 
 // ---- Game lifecycle ----
-async function startGame() {
+/** Starts a new game from ui.image, or resumes `restore` (a saved state). */
+async function startGame(restore) {
   const token = ++game.token;
   const img = ui.image;
-  const grid = computeGrid(ui.count, img.width, img.height);
+  const grid = restore
+    ? { cols: restore.cols, rows: restore.rows, count: restore.cols * restore.rows }
+    : computeGrid(ui.count, img.width, img.height);
+  game.id = restore ? restore.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   $('#result').hidden = true;
   game.P = null; game.board = null;
   showScreen('game');
   const loader = $('#loader');
   loader.hidden = false;
-  $('#loaderText').textContent = 'Cutting pieces…';
+  setBi($('#loaderText'), '조각 자르는 중…', 'Cutting pieces…');
   game.P = null; game.sprites = null; game.groups = []; game.targetLayer = null;
   game.completed = false; game.seamFade = 0; game.placed = 0; game.total = grid.count;
   game.flashes = []; game.introUntil = Infinity; game.wrongHintShown = false; sceneCache = null;
@@ -1808,7 +1876,8 @@ async function startGame() {
   await nextFrame();
   if (token !== game.token) return;
 
-  const P = buildPuzzle(img, grid.cols, grid.rows);
+  const P = buildPuzzle(img, grid.cols, grid.rows, restore && restore.edges);
+  if (restore) for (const id of restore.locked) P.pieces[id].locked = true;  // no sprites needed for these
   const board = computeBoard(P, view.cssW, view.cssH);
   game.board = board;
   game.P = P;
@@ -1818,11 +1887,14 @@ async function startGame() {
   // Initial sprite resolution: what the fitted view needs, a bit sharper.
   const k = Math.min(maxSpriteScale(P), Math.max(0.05, view.s * view.dpr * 1.6));
   const sprites = await buildSprites(P, k, () => token !== game.token, (f) => {
-    $('#loaderText').textContent = `Cutting pieces… ${Math.round(f * 100)}%`;
+    const pct = Math.round(f * 100) + '%';
+    setBi($('#loaderText'), `조각 자르는 중… ${pct}`, `Cutting pieces… ${pct}`);
   });
   if (!sprites || token !== game.token) return;
   game.sprites = sprites;
   game.targetLayer = createTargetLayer(P);
+  if (restore) { resumeState(P, restore, token); return; }
+  saveImage(img, game.id);
 
   // Every piece starts as its own group. The puzzle first appears assembled
   // in the frame, then the pieces burst out to their scattered spots.
@@ -1850,8 +1922,37 @@ async function startGame() {
   setTimeout(() => {
     if (token !== game.token) return;
     startTimer();
-    showHint(touch ? 'Drag pieces into the frame · pinch to zoom' : 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
+    scheduleSave();
+    if (touch) showHint('조각을 액자로 옮기세요 · 두 손가락으로 확대', 'Drag pieces into the frame · pinch to zoom');
+    else showHint('조각을 액자로 옮기세요 · 스크롤로 확대, 빈 곳을 끌어 이동', 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
   }, Math.max(0, introEnd - now));
+}
+
+/** Puts a saved game back on the board: locked pieces, groups, positions, time. */
+function resumeState(P, st, token) {
+  for (const p of P.pieces) {
+    if (p.locked) { p.x = p.cx; p.y = p.cy; drawLockedPiece(p); }
+    else { p.x = st.pos[p.id * 2]; p.y = st.pos[p.id * 2 + 1]; }
+  }
+  // Rebuild loose groups in their saved stacking order; anything missing
+  // from the save (shouldn't happen) becomes its own group.
+  const seen = new Set();
+  game.groups = [];
+  for (const ids of st.groups) {
+    const pieces = ids.map((id) => P.pieces[id]).filter((p) => p && !p.locked && !seen.has(p.id));
+    pieces.forEach((p) => seen.add(p.id));
+    if (pieces.length) game.groups.push(newGroup(pieces));
+  }
+  for (const p of P.pieces) if (!p.locked && !seen.has(p.id)) game.groups.push(newGroup([p]));
+  // The screen (and so the board) may differ from when it was saved.
+  for (const g of game.groups) clampGroupToBoard(g);
+  game.placed = st.locked.length;
+  game.introUntil = 0;
+  game.timer = { start: performance.now(), accumulated: st.elapsed || 0, running: true };
+  updateProgress();
+  $('#loader').hidden = true;
+  requestRender();
+  if (token === game.token) showHint('이어서 진행합니다', 'Picking up where you left off', 3000);
 }
 
 function rescatter() {
@@ -1864,6 +1965,7 @@ function rescatter() {
     animateGroupBy(g, slots[i].x - p0.x, slots[i].y - p0.y, 380);
     clampGroupToBoard(g);
   });
+  scheduleSave();
   requestRender();
 }
 
@@ -1871,13 +1973,14 @@ function rescatter() {
 $('#edgeBtn').addEventListener('click', (e) => {
   game.edgeOnly = !game.edgeOnly;
   e.currentTarget.setAttribute('aria-pressed', String(game.edgeOnly));
-  if (game.edgeOnly) showHint('Showing edge pieces only', 2000);
+  if (game.edgeOnly) showHint('테두리 조각만 표시 중', 'Showing edge pieces only', 2000);
   sceneCache = null;
   requestRender();
 });
 $('#scatterBtn').addEventListener('click', rescatter);
 $('#newBtn').addEventListener('click', () => {
-  if (game.P && !game.completed && game.placed > 0 && !confirm('Leave this puzzle and choose a new photo?')) return;
+  // Progress is saved, so leaving needs no confirmation; it can be resumed.
+  saveNow();
   goLanding();
 });
 $('#againBtn').addEventListener('click', () => { $('#result').hidden = true; startGame(); });
@@ -1888,8 +1991,9 @@ function setMuted(m) {
   audio.muted = m;
   const btn = $('#muteBtn');
   btn.setAttribute('aria-pressed', String(m));
-  btn.setAttribute('aria-label', m ? 'Unmute sound' : 'Mute sound');
-  btn.title = m ? 'Unmute sound' : 'Mute sound';
+  const label = m ? biText('소리 켜기', 'Unmute sound') : biText('소리 끄기', 'Mute sound');
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
   btn.querySelector('.snd-on').toggleAttribute('hidden', m);
   btn.querySelector('.snd-off').toggleAttribute('hidden', !m);
   try { localStorage.setItem('jigsaw-muted', m ? '1' : '0'); } catch {}
@@ -1925,11 +2029,138 @@ peekBtn.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'En
 peekBtn.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') hidePeek(); });
 window.addEventListener('blur', hidePeek);
 
+/* =====================================================================
+   16. SAVE & RESUME
+   Progress is kept in IndexedDB in this browser only (never uploaded):
+   'image' = the photo (JPEG bytes), 'state' = shapes, positions, time.
+   ===================================================================== */
+const SAVE_VERSION = 1;
+const db = {
+  promise: null,
+  open() {
+    if (!this.promise) {
+      this.promise = new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+        const req = indexedDB.open('photo-jigsaw', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('kv');
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return this.promise;
+  },
+  async tx(mode, fn) {
+    const d = await this.open();
+    return new Promise((resolve, reject) => {
+      const t = d.transaction('kv', mode);
+      const req = fn(t.objectStore('kv'));
+      t.oncomplete = () => resolve(req && req.result);
+      t.onerror = t.onabort = () => reject(t.error);
+    });
+  },
+  get(key) { return this.tx('readonly', (s) => s.get(key)); },
+  set(key, value) { return this.tx('readwrite', (s) => s.put(value, key)); },
+  clear() { return this.tx('readwrite', (s) => s.clear()); },
+};
+
+/** Stores the photo once per game. ArrayBuffer (not Blob) works in every browser's IndexedDB. */
+function saveImage(canvas, id) {
+  canvas.toBlob(async (blob) => {
+    if (!blob) return;
+    try {
+      await db.set('image', { id, type: blob.type, buf: await blob.arrayBuffer() });
+    } catch (err) { console.warn('Could not save the photo', err); }
+  }, 'image/jpeg', 0.92);
+}
+
+function snapshot() {
+  const P = game.P;
+  const pos = new Array(P.pieces.length * 2);
+  const locked = [];
+  for (const p of P.pieces) {
+    pos[p.id * 2] = p.x; pos[p.id * 2 + 1] = p.y;
+    if (p.locked) locked.push(p.id);
+  }
+  return {
+    v: SAVE_VERSION, id: game.id, cols: P.cols, rows: P.rows, count: ui.count,
+    edges: P.edges, pos, locked,
+    groups: game.groups.filter((g) => !g.locking).map((g) => g.pieces.map((p) => p.id)),
+    elapsed: elapsed(), total: game.total, savedAt: Date.now(),
+  };
+}
+
+let saveTimer = 0;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 500);
+}
+function saveNow() {
+  clearTimeout(saveTimer);
+  if (!game.P || !game.sprites || game.completed) return;
+  db.set('state', snapshot()).catch((err) => console.warn('Could not save progress', err));
+}
+function clearSave() {
+  clearTimeout(saveTimer);
+  ui.save = null;
+  db.clear().catch(() => {});
+}
+window.addEventListener('pagehide', saveNow);
+
+/** Loads a matching saved image + state pair, or null. */
+async function loadSave() {
+  try {
+    const state = await db.get('state');
+    if (!state || state.v !== SAVE_VERSION) return null;
+    const image = await db.get('image');
+    if (!image || image.id !== state.id) return null;
+    if (!Array.isArray(state.edges) || state.edges.length !== state.rows * (state.cols - 1) + state.cols * (state.rows - 1)) return null;
+    return { state, image };
+  } catch { return null; }
+}
+
+async function decodeSavedImage(image) {
+  const { img, url } = await decodeBlob(new Blob([image.buf], { type: image.type || 'image/jpeg' }));
+  try { return normalizeImage(img, 1); } finally { URL.revokeObjectURL(url); }
+}
+
+async function refreshResumeCard() {
+  const card = $('#resumeCard');
+  const save = await loadSave();
+  ui.save = save;
+  if (!save) { card.hidden = true; return; }
+  const st = save.state;
+  $('#resumeMeta').textContent = `${st.locked.length} / ${st.total} · ${formatTime(st.elapsed || 0)}`;
+  card.hidden = false;
+  try {
+    const src = await decodeSavedImage(save.image);
+    save.canvas = src;
+    const cv = $('#resumeThumb'), ctx = cv.getContext('2d');
+    const sc = Math.max(cv.width / src.width, cv.height / src.height);
+    ctx.drawImage(src, (cv.width - src.width * sc) / 2, (cv.height - src.height * sc) / 2, src.width * sc, src.height * sc);
+  } catch { card.hidden = true; ui.save = null; }
+}
+
+$('#resumeBtn').addEventListener('click', async () => {
+  const save = ui.save;
+  if (!save) return;
+  audio.unlock();
+  try {
+    ui.image = save.canvas || await decodeSavedImage(save.image);
+    ui.count = save.state.count || ui.count;
+    startGame(save.state);
+  } catch {
+    toast('저장된 퍼즐을 열 수 없습니다.', "Couldn't open the saved puzzle.");
+    clearSave();
+    $('#resumeCard').hidden = true;
+  }
+});
+
 // Resize handling.
 new ResizeObserver(() => { if (!screens.game.hidden) resizeCanvas(); }).observe($('#boardWrap'));
 window.addEventListener('resize', () => { if (!screens.setup.hidden && ui.image) drawPreview(); });
 
 showScreen('landing');
+refreshResumeCard();
 </script>
 </body>
 </html>
