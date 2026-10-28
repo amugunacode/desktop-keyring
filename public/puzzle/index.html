@@ -915,10 +915,6 @@ function createTargetLayer(P) {
   const ctx = layer.getContext('2d');
   ctx.fillStyle = '#f3f6fa';
   ctx.fillRect(0, 0, P.W, P.H);
-  // Very faint version of the photo helps orientation without giving it away.
-  ctx.globalAlpha = 0.07;
-  ctx.drawImage(P.src, 0, 0);
-  ctx.globalAlpha = 1;
   ctx.lineWidth = Math.max(1, P.s * 0.012);
   ctx.strokeStyle = 'rgba(70,85,120,.20)';
   ctx.setLineDash([P.s * 0.06, P.s * 0.05]);
