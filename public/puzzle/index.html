@@ -109,7 +109,9 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 .stats{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .timer{font-variant-numeric:tabular-nums;font-weight:750;font-size:1.05rem;background:#f1f3f9;border-radius:10px;padding:5px 9px}
 .progress{flex:1;min-width:64px;max-width:220px}
-.progress-text{font-size:.8rem;font-weight:650;color:var(--ink-2);font-variant-numeric:tabular-nums;display:block;margin-bottom:4px;white-space:nowrap}
+.progress-text.bump{animation:bump .35s ease}
+@keyframes bump{40%{transform:scale(1.18);color:var(--accent)}}
+.progress-text{font-size:.8rem;font-weight:650;color:var(--ink-2);font-variant-numeric:tabular-nums;display:block;margin-bottom:4px;white-space:nowrap;transform-origin:left center}
 .bar{height:5px;border-radius:99px;background:#e3e7f0;overflow:hidden}
 .bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--accent),#8a5bff);transition:width .3s ease}
 .tools{display:flex;gap:4px}
@@ -268,6 +270,7 @@ const $ = (sel) => document.querySelector(sel);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rand = (a, b) => a + Math.random() * (b - a);
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -615,7 +618,7 @@ function buildPuzzle(src, cols, rows) {
         x: x0, y: y0,                // current world position
         edge: r === 0 || c === 0 || r === rows - 1 || c === cols - 1,
         group: null, locked: false,
-        anim: null,                  // {dx, dy, t0, dur} snap animation offset
+        anim: null,                  // {dx, dy, t0, dur, ease, shake} animation offset
         sprite: null,                // {page, x, y} position in the sprite atlas
       });
     }
@@ -795,6 +798,8 @@ const game = {
   edgeOnly: false,
   targetLayer: null,    // canvas: frame base + ghost grid + locked pieces
   seamFade: 0,          // 0..1 cross-fade to the seamless photo at the end
+  flashes: [],          // short glow effects on snapped pieces
+  introUntil: 0,        // pieces can't be grabbed while they fly out at the start
   completed: false,
   token: 0,             // bumps on every new game to cancel async work
   timer: { start: 0, accumulated: 0, running: false },
@@ -941,7 +946,40 @@ function drawScene(ctx, now, skip) {
     if (g === skip || (game.edgeOnly && !g.hasEdge)) continue;
     if (drawGroup(ctx, g, now)) animating = true;
   }
+  if (drawFlashes(ctx, now)) animating = true;
   return animating;
+}
+
+/** Glowing outline that fades out over pieces that just snapped. */
+function drawFlashes(ctx, now) {
+  if (!game.flashes.length) return false;
+  const P = game.P;
+  game.flashes = game.flashes.filter((f) => now - f.t0 < f.dur);
+  ctx.save();
+  ctx.lineJoin = 'round';
+  for (const f of game.flashes) {
+    const t = clamp((now - f.t0) / f.dur, 0, 1);
+    const a = (1 - t) * (1 - t);
+    for (const p of f.pieces) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      setWorldTransform(ctx);
+      ctx.translate(p.x, p.y);
+      ctx.strokeStyle = `rgba(${f.color},${0.6 * a})`;
+      ctx.lineWidth = P.s * (0.1 + 0.08 * t);
+      ctx.stroke(p.path);
+      ctx.strokeStyle = `rgba(255,255,255,${0.95 * a})`;
+      ctx.lineWidth = P.s * 0.025;
+      ctx.stroke(p.path);
+    }
+  }
+  ctx.restore();
+  return game.flashes.length > 0;
+}
+
+function flash(pieces, color = '255,255,255', dur = 650) {
+  if (reducedMotion) return;
+  game.flashes.push({ pieces, t0: performance.now(), dur, color });
+  requestRender();
 }
 
 /** Blits a group's sprites (with snap animation offsets). Returns true while animating. */
@@ -955,9 +993,16 @@ function drawGroup(ctx, g, now) {
   for (const p of g.pieces) {
     let x = p.x - pad, y = p.y - pad;
     if (p.anim) {
-      const t = (now - p.anim.t0) / p.anim.dur;
+      const a = p.anim, t = (now - a.t0) / a.dur;
       if (t >= 1) p.anim = null;
-      else { const f = 1 - easeOutCubic(t); x += p.anim.dx * f; y += p.anim.dy * f; animating = true; }
+      else if (a.shake) {
+        // "Not here" wobble: a damped side-to-side shake.
+        if (t > 0) x += a.shake * Math.sin(t * Math.PI * 6) * (1 - t);
+        animating = true;
+      } else {
+        const f = 1 - (a.ease || easeOutCubic)(clamp(t, 0, 1));
+        x += a.dx * f; y += a.dy * f; animating = true;
+      }
     }
     if (x > right || y > bottom || x + dw < left || y + dh < top) continue;   // off-screen
     const slot = sp.slots[p.id];
@@ -1124,10 +1169,12 @@ boardCanvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
 
   if (pointers.size === 1) {
-    const g = game.completed ? null : hitTest(screenToWorld(pt.x, pt.y), e.pointerType !== 'mouse');
+    const canGrab = !game.completed && performance.now() >= game.introUntil;
+    const g = canGrab ? hitTest(screenToWorld(pt.x, pt.y), e.pointerType !== 'mouse') : null;
     if (g) {
       bringToFront(g);
-      drag = { group: g, pointerId: e.pointerId, last: screenToWorld(pt.x, pt.y) };
+      const p0 = g.pieces[0];
+      drag = { group: g, pointerId: e.pointerId, last: screenToWorld(pt.x, pt.y), anchor: { x: p0.x, y: p0.y }, hot: false };
       boardCanvas.classList.add('dragging');
       hideHint();
       requestRender();
@@ -1148,9 +1195,7 @@ boardCanvas.addEventListener('pointermove', (e) => {
   pointers.set(e.pointerId, pt);
 
   if (drag && drag.pointerId === e.pointerId) {
-    const w = screenToWorld(pt.x, pt.y);
-    moveGroup(drag.group, w.x - drag.last.x, w.y - drag.last.y);
-    drag.last = w;
+    dragTo(screenToWorld(pt.x, pt.y));
     autoPanNearEdge(pt);
     requestRender();
   } else if (pinch && pointers.size >= 2) {
@@ -1178,7 +1223,10 @@ function endPointer(e) {
   if (drag && drag.pointerId === e.pointerId) {
     const g = drag.group;
     drag = null;
-    if (!trySnap(g)) clampGroupToBoard(g);
+    if (!trySnap(g)) {
+      if (overlapsFrame(g)) wrongSpot(g);
+      clampGroupToBoard(g);
+    }
     requestRender();
   }
   if (pan && pan.pointerId === e.pointerId) {
@@ -1225,9 +1273,47 @@ function autoPanNearEdge(pt) {
   view.tx += dx; view.ty += dy;
   clampView();
   // Keep the dragged group under the finger.
-  const w = screenToWorld(pt.x, pt.y);
-  moveGroup(drag.group, w.x - drag.last.x, w.y - drag.last.y);
+  dragTo(screenToWorld(pt.x, pt.y));
+}
+
+/**
+ * Moves the dragged group with the pointer. Near a spot where it fits (its
+ * place in the frame, or a matching neighbour) it is pulled in like a magnet,
+ * fully docking when close, so you can feel that the position is right.
+ */
+function dragTo(w) {
+  const g = drag.group, p0 = g.pieces[0];
+  drag.anchor.x += w.x - drag.last.x;
+  drag.anchor.y += w.y - drag.last.y;
   drag.last = w;
+  const ax = drag.anchor.x, ay = drag.anchor.y;
+  const tol = snapTolerance(), R = tol * 1.7;
+  // Candidate positions for p0: its correct place, or aligned with a neighbour.
+  let best = null, bestD = R;
+  const consider = (tx, ty) => {
+    const d = Math.hypot(tx - ax, ty - ay);
+    if (d < bestD) { bestD = d; best = { x: tx, y: ty }; }
+  };
+  consider(p0.cx, p0.cy);
+  for (const p of g.pieces) {
+    for (const n of neighbours(p)) {
+      if (n.group === g || (n.group && n.group.locking)) continue;
+      if (!n.locked && game.edgeOnly && !n.group.hasEdge) continue;
+      consider(n.x - n.cx + p0.cx, n.y - n.cy + p0.cy);
+    }
+  }
+  let x = ax, y = ay, hot = false;
+  if (best) {
+    // 0 at the edge of the magnet radius → 1 (docked) at 40% of the snap distance.
+    const k = clamp((R - bestD) / (R - tol * 0.4), 0, 1);
+    const pull = k * k * (3 - 2 * k);
+    x += (best.x - ax) * pull;
+    y += (best.y - ay) * pull;
+    hot = bestD < tol;
+  }
+  if (hot && !drag.hot) buzz(6);
+  drag.hot = hot;
+  moveGroup(g, x - p0.x, y - p0.y);
 }
 
 /* =====================================================================
@@ -1240,7 +1326,7 @@ const SNAP_MS = 140;
 
 function snapTolerance() {
   const P = game.P;
-  return clamp(Math.max(P.s * 0.24, 14 / view.s), 0, P.s * 0.42);
+  return clamp(Math.max(P.s * 0.3, 18 / view.s), 0, P.s * 0.45);
 }
 
 function animateGroupBy(g, dx, dy, dur = SNAP_MS) {
@@ -1288,10 +1374,39 @@ function trySnap(g) {
       mergeInto(g, n.group);
       absorbAlignedNeighbours(g);
       audio.click(false);
+      buzz(10);
+      setTimeout(() => flash(g.pieces.slice(), '120,200,255', 500), SNAP_MS);
       return true;
     }
   }
   return false;
+}
+
+/** True if any piece of the group was dropped inside the frame. */
+function overlapsFrame(g) {
+  const P = game.P;
+  return g.pieces.some((p) => {
+    const cx = p.x + P.cw / 2, cy = p.y + P.ch / 2;
+    return cx > 0 && cy > 0 && cx < P.W && cy < P.H;
+  });
+}
+
+/** Feedback for a drop inside the frame that isn't the right spot. */
+function wrongSpot(g) {
+  audio.thud();
+  if (reducedMotion) return;
+  const now = performance.now(), amp = game.P.s * 0.06;
+  for (const p of g.pieces) p.anim = { shake: amp, t0: now, dur: 380 };
+  if (!game.wrongHintShown) {
+    game.wrongHintShown = true;
+    showHint("Not quite — pieces stick when they're in the right spot", 3500);
+  }
+  requestRender();
+}
+
+function buzz(ms) {
+  if (audio.muted) return;
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch {}
 }
 
 function mergeInto(g, other) {
@@ -1335,6 +1450,9 @@ function lockGroup(g) {
     for (const p of g.pieces) { p.anim = null; p.x = p.cx; p.y = p.cy; drawLockedPiece(p); }
     game.placed += g.pieces.length;
     sceneCache = null;
+    flash(g.pieces.slice(), '255,214,102');
+    buzz(18);
+    bumpProgress();
     updateProgress();
     requestRender();
     if (game.placed >= game.total) onComplete();
@@ -1382,6 +1500,31 @@ const audio = {
     og.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
     osc.connect(og).connect(ac.destination);
     osc.start(t); osc.stop(t + 0.08);
+  },
+  thud() {
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    const ac = this.ctx, t = ac.currentTime;
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(140, t + 0.12);
+    g.gain.setValueAtTime(0.14, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    osc.connect(g).connect(ac.destination);
+    osc.start(t); osc.stop(t + 0.15);
+  },
+  whoosh(delay = 0) {
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    const ac = this.ctx, t = ac.currentTime + delay, len = 0.5;
+    const buf = ac.createBuffer(1, Math.floor(ac.sampleRate * len), ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin((i / d.length) * Math.PI);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(500, t); bp.frequency.exponentialRampToValueAtTime(2400, t + len);
+    const g = ac.createGain(); g.gain.value = 0.12;
+    src.connect(bp).connect(g).connect(ac.destination);
+    src.start(t);
   },
   fanfare() {
     if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
@@ -1511,6 +1654,11 @@ function updateProgress() {
   const pct = game.total ? (game.placed / game.total) * 100 : 0;
   $('#progressBar').style.width = pct + '%';
   $('#progressBarWrap').setAttribute('aria-valuenow', Math.round(pct));
+}
+
+function bumpProgress() {
+  const el = $('#progressText');
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
 }
 
 // ---- Hint bubble ----
@@ -1652,6 +1800,7 @@ async function startGame() {
   $('#loaderText').textContent = 'Cutting pieces…';
   game.P = null; game.sprites = null; game.groups = []; game.targetLayer = null;
   game.completed = false; game.seamFade = 0; game.placed = 0; game.total = grid.count;
+  game.flashes = []; game.introUntil = Infinity; game.wrongHintShown = false; sceneCache = null;
   game.edgeOnly = false; $('#edgeBtn').setAttribute('aria-pressed', 'false');
   stopTimer(); game.timer = { start: 0, accumulated: 0, running: false };
   $('#timer').textContent = '00:00';
@@ -1675,17 +1824,34 @@ async function startGame() {
   game.sprites = sprites;
   game.targetLayer = createTargetLayer(P);
 
-  // Every piece starts as its own group, scattered around the frame.
+  // Every piece starts as its own group. The puzzle first appears assembled
+  // in the frame, then the pieces burst out to their scattered spots.
   const slots = scatterSlots(P, board, P.pieces.length);
   const order = shuffle(P.pieces.slice());
-  order.forEach((p, i) => { p.x = slots[i].x; p.y = slots[i].y; });
   game.groups = order.map((p) => newGroup([p]));
+  const now = performance.now();
+  const hold = 650, fly = 800, spread = Math.min(700, 200 + P.pieces.length * 1.2);
+  let introEnd = now;
+  order.forEach((p, i) => {
+    p.x = slots[i].x; p.y = slots[i].y;
+    if (reducedMotion) return;
+    // Pieces nearer the middle leave a little later, so it bursts outwards.
+    const edgeDist = Math.min(p.c, P.cols - 1 - p.c, p.r, P.rows - 1 - p.r) / Math.max(1, Math.min(P.cols, P.rows) / 2);
+    const delay = hold + spread * (0.55 * edgeDist + 0.45 * Math.random());
+    p.anim = { dx: p.cx - p.x, dy: p.cy - p.y, t0: now + delay, dur: fly, ease: easeInOutCubic };
+    introEnd = Math.max(introEnd, now + delay + fly);
+  });
+  game.introUntil = introEnd;
 
   loader.hidden = true;
-  startTimer();
   requestRender();
+  if (!reducedMotion) audio.whoosh(hold / 1000);
   const touch = matchMedia('(pointer: coarse)').matches;
-  showHint(touch ? 'Drag pieces into the frame · pinch to zoom' : 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
+  setTimeout(() => {
+    if (token !== game.token) return;
+    startTimer();
+    showHint(touch ? 'Drag pieces into the frame · pinch to zoom' : 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
+  }, Math.max(0, introEnd - now));
 }
 
 function rescatter() {
