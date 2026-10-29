@@ -637,6 +637,23 @@ function makeSampleImage() {
    ===================================================================== */
 const DIFFICULTIES = [24, 48, 100, 200, 500];
 
+/*
+ * TEMPORARY — demo mode for recording promo videos (e.g. Reels).
+ * Open the page with ?demo=1 (optionally &t=3:25 or &t=205 to preset the
+ * timer). Any new puzzle then starts with every piece placed except one,
+ * which waits just below the frame. Nothing is saved or cleared in demo
+ * mode, so a real saved puzzle is left alone.
+ * To remove: delete this block, setupDemo() and the lines that use DEMO.
+ */
+const DEMO = (() => {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('demo') || q.get('demo') === '0') return { on: false, time: 0 };
+  const t = (q.get('t') || '').trim();
+  const m = /^(\d+):(\d{1,2})$/.exec(t);
+  const secs = m ? +m[1] * 60 + +m[2] : (/^\d+$/.test(t) ? +t : 0);
+  return { on: true, time: secs * 1000 };
+})();
+
 function computeGrid(target, w, h) {
   let best = null;
   for (let cols = 2; cols <= 80; cols++) {
@@ -1967,6 +1984,7 @@ function drawPreview() {
 $('#backBtn').addEventListener('click', goLanding);
 /** Asks before a new game replaces a saved one that has real progress. */
 function okToReplaceSave() {
+  if (DEMO.on) return true;   // demo games never touch the save
   const s = ui.save && ui.save.state;
   return !(s && (s.locked.length > 0 || s.elapsed > 60000)) ||
     confirm(biText(`저장된 퍼즐(${s.locked.length}/${s.total})이 새 퍼즐로 바뀝니다. 계속할까요?`,
@@ -2050,6 +2068,7 @@ async function startGame(restore) {
     p.anim = { dx: p.cx - p.x, dy: p.cy - p.y, t0: now + delay, dur: fly, ease: easeInOutCubic };
     introEnd = Math.max(introEnd, now + delay + fly);
   });
+  if (DEMO.on) { setupDemo(P, token); return; }
   game.introUntil = introEnd;
 
   loader.hidden = true;
@@ -2066,6 +2085,32 @@ async function startGame(restore) {
     } else if (touch) showHint('조각을 액자로 옮기세요 · 두 손가락으로 확대', 'Drag pieces into the frame · pinch to zoom');
     else showHint('조각을 액자로 옮기세요 · 스크롤로 확대, 빈 곳을 끌어 이동', 'Drag pieces into the frame · scroll to zoom, drag the board to pan');
   }, Math.max(0, introEnd - now));
+}
+
+/** TEMPORARY demo mode: everything placed except one piece, waiting below the frame. */
+function setupDemo(P, token) {
+  // Keep an interior piece near the middle: it makes the nicer final click.
+  const keep = P.pieces[Math.floor(P.rows / 2) * P.cols + Math.floor((P.cols - 1) / 2)];
+  for (const p of P.pieces) {
+    p.anim = null;
+    if (p === keep) continue;
+    p.locked = true; p.x = p.cx; p.y = p.cy;
+    drawLockedPiece(p);
+  }
+  keep.x = P.W / 2 - P.cw / 2 + P.s * 0.6;
+  keep.y = Math.min(P.H + P.s * 0.75, game.board.y + game.board.h - P.ch - P.s * 0.3);
+  game.groups = [newGroup([keep])];
+  game.placed = P.pieces.length - 1;
+  // Frame the shot: the picture and the last piece fill the screen.
+  const pad = P.s * 0.5;
+  Object.assign(view, viewFor({ x: -pad, y: -pad, w: P.W + 2 * pad, h: keep.y + P.ch + 2 * pad }, 0.96));
+  sceneCache = null;
+  game.introUntil = 0;
+  game.timer = { start: performance.now(), accumulated: DEMO.time, running: true };
+  $('#timer').textContent = formatTime(DEMO.time);
+  updateProgress();
+  $('#loader').hidden = true;
+  if (token === game.token) requestRender();
 }
 
 /** Puts a saved game back on the board: locked pieces, groups, positions, time. */
@@ -2279,6 +2324,7 @@ const db = {
 
 /** Stores the photo once per game. ArrayBuffer (not Blob) works in every browser's IndexedDB. */
 function saveImage(canvas, id) {
+  if (DEMO.on) return;
   canvas.toBlob(async (blob) => {
     if (!blob) return;
     try {
@@ -2310,11 +2356,12 @@ function scheduleSave() {
 }
 function saveNow() {
   clearTimeout(saveTimer);
-  if (!game.P || !game.sprites || game.completed) return;
+  if (!game.P || !game.sprites || game.completed || DEMO.on) return;
   db.set('state', snapshot()).catch((err) => console.warn('Could not save progress', err));
 }
 function clearSave() {
   clearTimeout(saveTimer);
+  if (DEMO.on) return;
   ui.save = null;
   db.clear().catch(() => {});
 }
