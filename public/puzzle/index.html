@@ -192,6 +192,21 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
 .tool .bi .en{font-size:.72em}
 .btn{line-height:1.2}
 
+/* Share */
+.link-btn{margin-top:12px;border:0;background:none;color:var(--accent);font-weight:650;display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px}
+.link-btn:hover{background:#eef0ff}
+.link-btn svg,.share-wide svg{width:18px;height:18px;flex:none}
+.share-wide{width:100%;margin:0 0 10px}
+.compare{margin:-6px 0 14px;font-weight:650;color:var(--accent)}
+.compare .en{color:var(--ink-2)}
+.share-modal{z-index:8}
+.share-thumb{display:block;margin:0 auto 12px;border-radius:12px;box-shadow:var(--shadow-sm);max-width:100%;background:#eef1f6}
+.share-desc{margin:0 0 16px;color:var(--ink-2);font-size:.95rem}
+.share-note{margin:14px 0 6px;font-size:.78rem;color:var(--ink-2)}
+.share-card .back{margin:4px 0 0}
+.btn:disabled{opacity:.5;cursor:default}
+.resume.shared{border:2px solid rgba(91,108,255,.35)}
+
 /* Resume card */
 .resume{display:flex;align-items:center;gap:12px;background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:12px;margin:0 0 16px;text-align:left}
 .resume-thumb{width:72px;height:54px;border-radius:10px;object-fit:cover;background:#eef1f6;flex:none}
@@ -215,6 +230,14 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path fill="#5b6cff" d="M8 14h14a7 7 0 1 1 14 0h14v14a7 7 0 1 0 0 14v14H36a7 7 0 1 0-14 0H8V42a7 7 0 1 1 0-14z"/><path fill="#ff7a59" d="M36 42a7 7 0 1 0-14 0H8v14h42V42a7 7 0 1 1 0-14v14z" opacity=".9"/></svg>
     <h1>사진 직소 퍼즐<span class="en">Photo Jigsaw</span></h1>
     <p class="sub">사진을 직소 퍼즐로 바꿔 바로 맞춰 보세요.<span class="en">Turn any photo into a jigsaw puzzle and solve it right here.</span></p>
+    <div id="sharedCard" class="resume shared" hidden>
+      <canvas id="sharedThumb" class="resume-thumb" width="96" height="72"></canvas>
+      <div class="resume-info">
+        <b class="bi"><span>친구가 보낸 퍼즐</span><span class="en">A puzzle from a friend</span></b>
+        <small id="sharedMeta"></small>
+      </div>
+      <button class="btn primary" id="playSharedBtn" type="button"><span class="bi"><span>플레이</span><span class="en">Play</span></span></button>
+    </div>
     <div id="resumeCard" class="resume" hidden>
       <canvas id="resumeThumb" class="resume-thumb" width="96" height="72"></canvas>
       <div class="resume-info">
@@ -247,6 +270,9 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     <h2>몇 조각으로 할까요?<span class="en">How many pieces?</span></h2>
     <div class="chips" id="chips" role="radiogroup" aria-label="조각 수 · Number of pieces"></div>
     <div class="actions"><button class="btn primary big" id="startBtn" type="button"><span class="bi"><span>퍼즐 시작</span><span class="en">Start puzzle</span></span></button></div>
+    <div class="actions"><button class="link-btn" id="setupShareBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
+      <span class="bi"><span>이 사진으로 친구에게 퍼즐 보내기</span><span class="en">Send this puzzle to a friend</span></span></button></div>
   </div>
 </section>
 
@@ -301,10 +327,28 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
       <div><b id="resultTime">00:00</b><small>시간 · time</small></div>
       <div><b id="resultPieces">0</b><small>조각 · pieces</small></div>
     </div>
+    <p class="compare" id="resultCompare" hidden></p>
+    <button class="btn ghost share-wide" id="resultShareBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
+      <span class="bi"><span>친구에게 도전장 보내기</span><span class="en">Challenge a friend</span></span></button>
     <div class="row">
       <button class="btn primary" id="againBtn" type="button"><span class="bi"><span>다시 하기</span><span class="en">Play again</span></span></button>
       <button class="btn ghost" id="resultNewBtn" type="button"><span class="bi"><span>새 사진</span><span class="en">New photo</span></span></button>
     </div>
+  </div>
+</div>
+
+<div class="modal share-modal" id="shareModal" hidden role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+  <div class="result share-card">
+    <h2 id="shareTitle">친구에게 공유<span class="en">Share with a friend</span></h2>
+    <canvas id="shareThumb" class="share-thumb" width="240" height="160"></canvas>
+    <p class="share-desc" id="shareDesc"></p>
+    <div class="row">
+      <button class="btn primary" id="shareNativeBtn" type="button" disabled><span class="bi"><span>공유하기</span><span class="en">Share</span></span></button>
+      <button class="btn ghost" id="shareCopyBtn" type="button" disabled><span class="bi"><span>링크 복사</span><span class="en">Copy link</span></span></button>
+    </div>
+    <p class="share-note">사진은 서버에 올라가지 않고 링크 안에 담겨 전달돼요. 링크를 받은 사람은 사진을 볼 수 있어요.<span class="en">The photo isn't uploaded — it's packed into the link itself. Anyone with the link can see it.</span></p>
+    <button class="back" id="shareCloseBtn" type="button">닫기 · Close</button>
   </div>
 </div>
 
@@ -1677,6 +1721,7 @@ const audio = {
 function onComplete() {
   if (game.completed) return;
   game.completed = true;
+  hideHint();
   stopTimer();
   clearSave();
   const P = game.P;
@@ -1702,6 +1747,17 @@ function onComplete() {
     if (token !== game.token) return;
     $('#resultTime').textContent = formatTime(elapsed());
     $('#resultPieces').textContent = game.total;
+    const cmp = $('#resultCompare'), ch = ui.challenge;
+    cmp.hidden = !(ch && ch.time > 0);
+    if (!cmp.hidden) {
+      const mine = Math.round(elapsed() / 1000) * 1000, diff = Math.round(Math.abs(mine - ch.time) / 1000), f = formatTime(ch.time);
+      const m = Math.floor(diff / 60), sec = diff % 60;
+      const ko = (m ? `${m}분 ` : '') + (sec || !m ? `${sec}초` : '');
+      const en = (m ? `${m}m ` : '') + (sec || !m ? `${sec}s` : '');
+      if (mine < ch.time) setBi(cmp, `친구 기록 ${f} · ${ko.trim()} 더 빨랐어요! 🏆`, `Friend's time ${f} · you were ${en.trim()} faster!`);
+      else if (mine > ch.time) setBi(cmp, `친구 기록 ${f} · ${ko.trim()} 차이로 아쉽게 졌어요`, `Friend's time ${f} · ${en.trim()} behind`);
+      else setBi(cmp, `친구 기록 ${f} · 동점이에요!`, `Friend's time ${f} · a tie!`);
+    }
     $('#result').hidden = false;
     $('#againBtn').focus();
   }, 1300);
@@ -1857,6 +1913,7 @@ async function openFile(file) {
 // ---- Setup screen ----
 function setImage(img) {
   ui.image = img;
+  ui.challenge = null;
   buildChips();
   showScreen('setup');
   drawPreview();
@@ -1908,11 +1965,15 @@ function drawPreview() {
 }
 
 $('#backBtn').addEventListener('click', goLanding);
-$('#startBtn').addEventListener('click', () => {
+/** Asks before a new game replaces a saved one that has real progress. */
+function okToReplaceSave() {
   const s = ui.save && ui.save.state;
-  if (s && (s.locked.length > 0 || s.elapsed > 60000) &&
-      !confirm(biText(`저장된 퍼즐(${s.locked.length}/${s.total})이 새 퍼즐로 바뀝니다. 계속할까요?`,
-        `Your saved puzzle (${s.locked.length}/${s.total}) will be replaced. Continue?`, '\n\n'))) return;
+  return !(s && (s.locked.length > 0 || s.elapsed > 60000)) ||
+    confirm(biText(`저장된 퍼즐(${s.locked.length}/${s.total})이 새 퍼즐로 바뀝니다. 계속할까요?`,
+      `Your saved puzzle (${s.locked.length}/${s.total}) will be replaced. Continue?`, '\n\n'));
+}
+$('#startBtn').addEventListener('click', () => {
+  if (!okToReplaceSave()) return;
   audio.unlock();
   startGame();
 });
@@ -2238,7 +2299,7 @@ function snapshot() {
     v: SAVE_VERSION, id: game.id, cols: P.cols, rows: P.rows, count: ui.count,
     edges: P.edges, pos, locked,
     groups: game.groups.filter((g) => !g.locking).map((g) => g.pieces.map((p) => p.id)),
-    elapsed: elapsed(), total: game.total, savedAt: Date.now(),
+    elapsed: elapsed(), total: game.total, savedAt: Date.now(), challenge: ui.challenge || null,
   };
 }
 
@@ -2300,6 +2361,7 @@ $('#resumeBtn').addEventListener('click', async () => {
   try {
     ui.image = save.canvas || await decodeSavedImage(save.image);
     ui.count = save.state.count || ui.count;
+    ui.challenge = save.state.challenge || null;
     startGame(save.state);
   } catch {
     toast('저장된 퍼즐을 열 수 없습니다.', "Couldn't open the saved puzzle.");
@@ -2308,12 +2370,193 @@ $('#resumeBtn').addEventListener('click', async () => {
   }
 });
 
+/* =====================================================================
+   17. SHARING  (no server: the photo travels inside the link)
+   A share link is  …/puzzle/#p=1.<pieces>.<friend's seconds>.<bytes>.<image>
+   where <image> is a small WebP/JPEG in base64url and <bytes> its size
+   (so a link cut off by a chat app is detected). The part after '#'
+   is never sent to any server; the recipient's browser decodes it.
+   ===================================================================== */
+const SHARE_MAX_BYTES = 40000;
+const SITE_PUZZLE_URL = 'https://desktop-keyring.vercel.app/puzzle/';
+
+function canvasToBlob(c, type, q) {
+  return new Promise((resolve) => c.toBlob(resolve, type, q));
+}
+function bytesToB64url(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlToBytes(str) {
+  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (str.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** Compresses the photo until it fits a link (prefers WebP, falls back to JPEG). */
+async function encodeShareImage(src) {
+  const steps = [[1000, 0.72], [880, 0.66], [760, 0.6], [640, 0.56], [540, 0.5], [440, 0.45]];
+  let blob = null;
+  for (const [edge, q] of steps) {
+    const sc = Math.min(1, edge / Math.max(src.width, src.height));
+    const c = makeCanvas(Math.round(src.width * sc), Math.round(src.height * sc));
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, 0, 0, c.width, c.height);
+    blob = await canvasToBlob(c, 'image/webp', q);
+    if (!blob || blob.type !== 'image/webp') blob = await canvasToBlob(c, 'image/jpeg', q);
+    if (blob && blob.size <= SHARE_MAX_BYTES) break;
+  }
+  return { b64: bytesToB64url(await blob.arrayBuffer()), bytes: blob.size };
+}
+
+/** Encoded image per source canvas, so repeated shares don't re-encode. */
+const shareCache = new WeakMap();
+function sharePayload(src) {
+  if (!shareCache.has(src)) shareCache.set(src, encodeShareImage(src));
+  return shareCache.get(src);
+}
+
+function shareBaseUrl() {
+  // Opened as a local file: links must point at the public site instead.
+  return location.protocol === 'file:' ? SITE_PUZZLE_URL : location.origin + location.pathname;
+}
+
+function readShareLink() {
+  if (!location.hash.startsWith('#p=')) return null;
+  const m = /^#p=1\.(\d{1,4})\.(\d{1,7})\.(\d{1,7})\.([A-Za-z0-9_-]+)$/.exec(location.hash);
+  if (!m) return { broken: true };
+  const n = +m[1];
+  const count = DIFFICULTIES.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+  return { count, time: +m[2] * 1000, bytes: +m[3], b64: m[4] };
+}
+
+let shareState = null;   // {url, title, text} once the link is ready
+async function openShare(src, withRecord) {
+  const modal = $('#shareModal');
+  const nativeBtn = $('#shareNativeBtn'), copyBtn = $('#shareCopyBtn');
+  shareState = null;
+  nativeBtn.disabled = copyBtn.disabled = true;
+  nativeBtn.hidden = !navigator.share;
+  const count = ui.count;
+  const g = computeGrid(count, src.width, src.height);
+  const secs = withRecord ? Math.round(elapsed() / 1000) : 0;
+  if (secs) setBi($('#shareDesc'), `${g.count}조각을 ${formatTime(secs * 1000)}에 맞췄어요. 받은 사람이 링크를 열면 바로 도전할 수 있어요.`,
+    `Solved ${g.count} pieces in ${formatTime(secs * 1000)}. Whoever opens the link can play it right away.`);
+  else setBi($('#shareDesc'), `${g.count}조각 퍼즐이에요. 받은 사람이 링크를 열면 바로 플레이할 수 있어요.`,
+    `A ${g.count}-piece puzzle. Whoever opens the link can play it right away.`);
+  const cv = $('#shareThumb'), ctx = cv.getContext('2d');
+  const sc = Math.min(240 / src.width, 160 / src.height);
+  cv.width = Math.round(src.width * sc); cv.height = Math.round(src.height * sc);
+  ctx.drawImage(src, 0, 0, cv.width, cv.height);
+  modal.hidden = false;
+  try {
+    const { b64, bytes } = await sharePayload(src);
+    if (modal.hidden) return;
+    const url = `${shareBaseUrl()}#p=1.${count}.${secs}.${bytes}.${b64}`;
+    const text = secs
+      ? `🧩 ${g.count}조각 퍼즐을 ${formatTime(secs * 1000)}에 맞췄어요! 도전해 보세요.\nI solved this ${g.count}-piece puzzle in ${formatTime(secs * 1000)} — can you beat it?`
+      : `🧩 이 사진으로 ${g.count}조각 퍼즐을 맞춰 보세요!\nTry this ${g.count}-piece photo puzzle!`;
+    shareState = { url, text, title: '사진 직소 퍼즐 · Photo Jigsaw' };
+    nativeBtn.disabled = copyBtn.disabled = false;
+    (navigator.share ? nativeBtn : copyBtn).focus();
+  } catch (err) {
+    console.error(err);
+    modal.hidden = true;
+    toast('공유 링크를 만들지 못했어요.', "Couldn't create the share link.");
+  }
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  // Older browsers / no permission: copy via a hidden textarea.
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  ta.remove();
+  return ok;
+}
+
+$('#shareNativeBtn').addEventListener('click', async () => {
+  if (!shareState) return;
+  try {
+    await navigator.share({ title: shareState.title, text: shareState.text, url: shareState.url });
+    $('#shareModal').hidden = true;
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;      // user closed the share sheet
+    $('#shareCopyBtn').click();
+  }
+});
+$('#shareCopyBtn').addEventListener('click', async () => {
+  if (!shareState) return;
+  if (await copyText(`${shareState.text}\n${shareState.url}`)) {
+    toast('링크를 복사했어요. 메신저에 붙여넣어 보내세요.', 'Link copied — paste it into a chat to send.');
+    $('#shareModal').hidden = true;
+  } else {
+    toast('복사하지 못했어요. 공유하기 버튼을 써 주세요.', "Couldn't copy. Please use the Share button.");
+  }
+});
+$('#shareCloseBtn').addEventListener('click', () => { $('#shareModal').hidden = true; });
+$('#shareModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#shareModal').hidden = true; });
+
+$('#setupShareBtn').addEventListener('click', () => { if (ui.image) openShare(ui.image, false); });
+$('#resultShareBtn').addEventListener('click', () => { if (game.P) openShare(game.P.src, true); });
+
+// ---- Receiving a shared puzzle ----
+let incoming = null;   // {count, time, canvas}
+async function checkShareLink() {
+  const link = readShareLink();
+  const card = $('#sharedCard');
+  if (!link) { incoming = null; card.hidden = true; return; }
+  try {
+    if (link.broken) throw new Error('bad link');
+    const bytes = b64urlToBytes(link.b64);
+    if (bytes.length !== link.bytes) throw new Error('truncated link');
+    const type = bytes[0] === 0xff && bytes[1] === 0xd8 ? 'image/jpeg' : 'image/webp';
+    const { img, url } = await decodeBlob(new Blob([bytes], { type }));
+    let canvas;
+    try { canvas = normalizeImage(img, 1); } finally { URL.revokeObjectURL(url); }
+    shareCache.set(canvas, Promise.resolve({ b64: link.b64, bytes: link.bytes }));   // re-share without re-encoding
+    incoming = { count: link.count, time: link.time, canvas };
+    const g = computeGrid(link.count, canvas.width, canvas.height);
+    if (link.time) setBi($('#sharedMeta'), `${g.count}조각 · 친구 기록 ${formatTime(link.time)}`, `${g.count} pieces · friend's time ${formatTime(link.time)}`);
+    else setBi($('#sharedMeta'), `${g.count}조각`, `${g.count} pieces`);
+    const cv = $('#sharedThumb'), ctx = cv.getContext('2d');
+    const sc = Math.max(cv.width / canvas.width, cv.height / canvas.height);
+    ctx.drawImage(canvas, (cv.width - canvas.width * sc) / 2, (cv.height - canvas.height * sc) / 2, canvas.width * sc, canvas.height * sc);
+    card.hidden = false;
+  } catch {
+    incoming = null; card.hidden = true;
+    toast('공유 링크가 잘렸거나 손상된 것 같아요. 보낸 사람에게 다시 요청해 주세요.', 'This share link looks cut off or damaged. Ask the sender to send it again.');
+  }
+}
+$('#playSharedBtn').addEventListener('click', () => {
+  if (!incoming || !okToReplaceSave()) return;
+  audio.unlock();
+  ui.image = incoming.canvas;
+  ui.count = incoming.count;
+  ui.challenge = incoming.time ? { time: incoming.time, count: incoming.count } : null;
+  // Drop the long hash from the address bar; the game is auto-saved from here.
+  try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+  $('#sharedCard').hidden = true;
+  incoming = null;
+  startGame();
+});
+window.addEventListener('hashchange', () => { if (!screens.landing.hidden) checkShareLink(); });
+
 // Resize handling.
 new ResizeObserver(() => { if (!screens.game.hidden) resizeCanvas(); }).observe($('#boardWrap'));
 window.addEventListener('resize', () => { if (!screens.setup.hidden && ui.image) drawPreview(); });
 
 showScreen('landing');
 refreshResumeCard();
+checkShareLink();
 </script>
 </body>
 </html>
