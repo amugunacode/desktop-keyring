@@ -675,8 +675,10 @@ const DIFFICULTIES = [24, 48, 100, 200, 500];
  * Open the page with ?demo=N, where N is how many pieces are left to place
  * (?demo=1 → the last piece, ?demo=10 → the last ten). Optionally add
  * &t=3:25 or &t=205 to preset the timer. Any new puzzle then starts with
- * every other piece placed; a single leftover waits just below the frame,
- * several are scattered close around it. Nothing is saved or cleared in demo
+ * every other piece placed. A single leftover is a middle piece waiting just
+ * below the frame; several are holes spread over the picture (never
+ * touching each other), with the loose pieces spread evenly around the
+ * frame. Nothing is saved or cleared in demo
  * mode, so a real saved puzzle is left alone.
  * To remove: delete this block, setupDemo() and the lines that use DEMO.
  */
@@ -2340,13 +2342,25 @@ async function startGame(restore) {
 
 /** TEMPORARY demo mode: everything placed except one piece, waiting below the frame. */
 function setupDemo(P, token) {
-  // Leave a compact hole around the middle: the pieces closest to the
-  // centre stay loose (one piece → an interior one, the nicest final click).
+  // Which pieces stay loose: one → the middle piece (the nicest final
+  // click); several → random holes spread over the picture, avoiding
+  // neighbours of holes already chosen so they don't clump together.
   const n = Math.min(DEMO.left, P.pieces.length - 1);
-  const mr = (P.rows - 1) / 2, mc = (P.cols - 1) / 2;
-  const keep = P.pieces.slice()
-    .sort((a, b) => Math.hypot(a.r - mr, (a.c - mc) * 0.9) - Math.hypot(b.r - mr, (b.c - mc) * 0.9))
-    .slice(0, n);
+  let keep;
+  if (n === 1) {
+    keep = [P.pieces[Math.floor(P.rows / 2) * P.cols + Math.floor((P.cols - 1) / 2)]];
+  } else {
+    keep = [];
+    const taken = new Set(), near = new Set();
+    for (const p of shuffle(P.pieces.slice())) {
+      if (keep.length >= n) break;
+      if (near.has(p)) continue;
+      keep.push(p); taken.add(p);
+      near.add(p); for (const q of neighbours(p)) near.add(q);
+    }
+    // Small puzzles may not have room for that many separate holes.
+    for (const p of shuffle(P.pieces.slice())) { if (keep.length >= n) break; if (!taken.has(p)) { keep.push(p); taken.add(p); } }
+  }
   const keepSet = new Set(keep);
   for (const p of P.pieces) {
     p.anim = null;
@@ -2358,9 +2372,25 @@ function setupDemo(P, token) {
     keep[0].x = P.W / 2 - P.cw / 2 + P.s * 0.6;
     keep[0].y = Math.min(P.H + P.s * 0.75, game.board.y + game.board.h - P.ch - P.s * 0.3);
   } else {
-    // Scattered on the free spots nearest the frame.
-    const slots = scatterSlots(P, game.board, n, controlsAvoidRect());
-    shuffle(keep).forEach((p, i) => { p.x = slots[i].x; p.y = slots[i].y; });
+    // Spread evenly around the frame: take the free spots in a ring close
+    // to it and pick n of them at evenly spaced angles.
+    const avoid = controlsAvoidRect();
+    const ring = gridSlots(P, game.board, P.s * 1.3).filter((sl) => !avoid ||
+      sl.x + P.cw / 2 < avoid.x || sl.x - P.cw / 2 > avoid.x + avoid.w || sl.y + P.ch / 2 < avoid.y || sl.y - P.ch / 2 > avoid.y + avoid.h);
+    ring.sort((a, b) => a.d - b.d);
+    const close = ring.filter((sl) => sl.d < P.s * 2.4);
+    const pool = close.length >= n ? close : ring.slice(0, Math.max(n, Math.ceil(n * 1.5)));
+    pool.forEach((sl) => { sl.a = Math.atan2(sl.y - P.H / 2, sl.x - P.W / 2); });
+    pool.sort((a, b) => a.a - b.a);
+    const start = Math.random() * pool.length;
+    const used = new Set();
+    shuffle(keep).forEach((p, i) => {
+      const sl = pool[Math.floor(start + (i * pool.length) / n) % pool.length];
+      used.add(sl);
+      p.x = sl.x - P.cw / 2 + rand(-0.1, 0.1) * P.s;
+      p.y = sl.y - P.ch / 2 + rand(-0.1, 0.1) * P.s;
+    });
+    keep.pool = ring; keep.used = used;
   }
   game.groups = keep.map((p) => newGroup([p]));
   game.placed = P.pieces.length - n;
@@ -2372,6 +2402,25 @@ function setupDemo(P, token) {
     x1 = Math.max(x1, p.x + P.cw + pad); y1 = Math.max(y1, p.y + P.ch + pad);
   }
   Object.assign(view, viewFor({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, 0.96));
+  // The zoom buttons cover a different spot in this framing: move any piece
+  // that ended up under them to the nearest free spot that is visible.
+  if (keep.pool) {
+    const av = controlsAvoidRect(view);
+    const tl = screenToWorld(0, 0), br = screenToWorld(view.cssW, view.cssH);
+    const under = (x, y) => av && x + P.cw > av.x && x < av.x + av.w && y + P.ch > av.y && y < av.y + av.h;
+    const visible = (x, y) => x > tl.x && y > tl.y && x + P.cw < br.x && y + P.ch < br.y;
+    for (const p of keep) {
+      if (!under(p.x, p.y)) continue;
+      let best = null, bestD = Infinity;
+      for (const sl of keep.pool) {
+        const x = sl.x - P.cw / 2, y = sl.y - P.ch / 2;
+        if (keep.used.has(sl) || under(x, y) || !visible(x, y)) continue;
+        const d = Math.hypot(x - p.x, y - p.y);
+        if (d < bestD) { bestD = d; best = sl; }
+      }
+      if (best) { keep.used.add(best); p.x = best.x - P.cw / 2; p.y = best.y - P.ch / 2; }
+    }
+  }
   sceneCache = null;
   game.introUntil = 0;
   game.timer = { start: performance.now(), accumulated: DEMO.time, running: true };
@@ -2471,11 +2520,11 @@ function gatherIntoView() {
   requestRender();
 }
 
-/** World rect covered by the floating zoom buttons when the board is fitted to the screen. */
-function controlsAvoidRect() {
+/** World rect covered by the floating zoom buttons for view v (default: board fitted to the screen). */
+function controlsAvoidRect(v = viewFor(game.board)) {
   const el = $('.zoom-ctl'), cr = boardCanvas.getBoundingClientRect(), r = el.getBoundingClientRect();
   if (!r.width) return null;
-  const v = viewFor(game.board), m = 8;
+  const m = 8;
   return {
     x: (r.left - cr.left - m - v.tx) / v.s, y: (r.top - cr.top - m - v.ty) / v.s,
     w: (r.width + 2 * m) / v.s, h: (r.height + 2 * m) / v.s,
