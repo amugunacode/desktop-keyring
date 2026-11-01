@@ -138,6 +138,28 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
   pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 132px);text-align:center;
 }
 
+/* Cat reactions that pop up over a dropped piece */
+.meme{position:absolute;left:0;top:0;width:72px;height:72px;object-fit:cover;border-radius:18px;
+  box-shadow:0 6px 16px rgba(30,40,70,.28);pointer-events:none;z-index:3;transform:translate(-50%,-50%)}
+.meme.right{animation:memeRight 1.15s cubic-bezier(.2,1.2,.4,1) forwards}
+.meme.wrong{animation:memeWrong 1.15s ease forwards}
+@keyframes memeRight{
+  0%{transform:translate(-50%,-30%) scale(.2) rotate(-14deg);opacity:0}
+  18%{transform:translate(-50%,-50%) scale(1.08) rotate(4deg);opacity:1}
+  30%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+  75%{transform:translate(-50%,-55%) scale(1);opacity:1}
+  100%{transform:translate(-50%,-75%) scale(.85);opacity:0}}
+@keyframes memeWrong{
+  0%{transform:translate(-50%,-50%) scale(.3);opacity:0}
+  14%{transform:translate(-50%,-50%) scale(1.12);opacity:1}
+  22%{transform:translate(-54%,-50%) scale(1) rotate(-5deg)}
+  30%{transform:translate(-46%,-50%) rotate(5deg)}
+  38%{transform:translate(-53%,-50%) rotate(-3deg)}
+  46%{transform:translate(-50%,-50%) rotate(0)}
+  78%{opacity:1}
+  100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}
+@media (min-width:820px){.meme{width:88px;height:88px}}
+
 /* Floating view controls (bottom-right of the board) */
 .zoom-ctl{position:absolute;right:12px;bottom:calc(12px + var(--safe-bottom));display:flex;flex-direction:column;gap:8px;z-index:2}
 .zbtn{width:42px;height:42px;border:0;border-radius:14px;background:rgba(255,255,255,.92);box-shadow:var(--shadow-sm);display:grid;place-items:center;color:var(--ink);touch-action:manipulation;transition:transform .12s,background .15s}
@@ -158,6 +180,14 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 .result{width:100%;max-width:360px;background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:26px 22px 22px;text-align:center;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes pop{from{transform:scale(.85) translateY(10px);opacity:0}}
 .result .badge{font-size:2.6rem;line-height:1;margin-bottom:6px}
+/* Thumbs-up cat: round photo overlapping the top of the result card */
+.result.has-cat{margin-top:70px;padding-top:0}
+.hero-cat{width:156px;height:156px;margin:-78px auto 10px;border-radius:50%;overflow:hidden;border:6px solid #fff;
+  box-shadow:0 12px 28px rgba(40,55,90,.28);background:#f3d9a8;animation:catIn .7s cubic-bezier(.2,1.5,.4,1) .15s both}
+.hero-cat img{width:100%;height:100%;object-fit:cover;display:block;transform-origin:30% 70%;animation:thumbs 1.4s ease-in-out .9s 2}
+@keyframes catIn{from{transform:scale(.3) rotate(-25deg);opacity:0}}
+@keyframes thumbs{25%{transform:rotate(-6deg) scale(1.04)}50%{transform:rotate(4deg)}75%{transform:rotate(-3deg) scale(1.03)}}
+@media (max-height:620px){.hero-cat{width:116px;height:116px;margin-top:-58px}.result.has-cat{margin-top:52px}}
 .result h2{margin:0 0 14px;font-size:1.45rem}
 .result-stats{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
 .result-stats div{flex:1;background:#f4f6fb;border-radius:14px;padding:10px}
@@ -167,7 +197,7 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
 
 /* Toast */
 .toast{
-  position:fixed;left:50%;top:calc(16px + var(--safe-top));transform:translate(-50%,-20px);opacity:0;z-index:9;
+  position:fixed;left:50%;top:calc(16px + var(--safe-top));transform:translate(-50%,-20px);opacity:0;z-index:10;
   background:#fff;color:var(--ink);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;max-width:min(440px,calc(100vw - 32px));
   display:flex;gap:10px;align-items:flex-start;transition:opacity .25s,transform .25s;pointer-events:none;font-size:.95rem
 }
@@ -199,7 +229,7 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
 .share-wide{width:100%;margin:0 0 10px}
 .compare{margin:-6px 0 14px;font-weight:650;color:var(--accent)}
 .compare .en{color:var(--ink-2)}
-.share-modal{z-index:8}
+.share-modal{z-index:9}
 .share-thumb{display:block;margin:0 auto 12px;border-radius:12px;box-shadow:var(--shadow-sm);max-width:100%;background:#eef1f6}
 .share-desc{margin:0 0 16px;color:var(--ink-2);font-size:.95rem}
 .share-note{margin:14px 0 6px;font-size:.78rem;color:var(--ink-2)}
@@ -303,6 +333,8 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     <canvas id="board" aria-label="퍼즐 보드 · Puzzle board"></canvas>
     <div class="loader" id="loader" hidden><div><div class="spinner"></div><span id="loaderText" class="bi"></span></div></div>
     <div class="hint" id="hint" hidden></div>
+    <img class="meme" id="memeRight" src="right-cat.jpg" alt="" aria-hidden="true" hidden>
+    <img class="meme" id="memeWrong" src="wrong-cat.jpg" alt="" aria-hidden="true" hidden>
     <div class="zoom-ctl" role="toolbar" aria-label="보기 조절 · View controls">
       <button class="zbtn" id="gatherBtn" type="button" title="보이는 곳으로 조각 모으기 (G) · Gather pieces into view (G)" aria-label="조각 모으기 · Gather pieces">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg></button>
@@ -321,7 +353,8 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
 
 <div class="modal" id="result" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
   <div class="result">
-    <div class="badge" aria-hidden="true">🎉</div>
+    <div class="hero-cat" id="resultHero"><img id="resultCat" src="thumbs-up-cat.jpg" alt="따봉 고양이 · Thumbs-up cat" width="447" height="447" decoding="async"></div>
+    <div class="badge" id="resultBadge" aria-hidden="true" hidden>🎉</div>
     <h2 id="resultTitle">퍼즐 완성!<span class="en">Puzzle complete!</span></h2>
     <div class="result-stats">
       <div><b id="resultTime">00:00</b><small>시간 · time</small></div>
@@ -1580,9 +1613,40 @@ function overlapsFrame(g) {
   });
 }
 
+/**
+ * Pops a cat reaction over a group for about a second: the heart cat for a
+ * correct placement, the explosion cat for a wrong spot. Shown above the
+ * piece where possible and kept inside the board area.
+ */
+const memeTimers = {};
+function showMeme(kind, g) {
+  const el = $(kind === 'right' ? '#memeRight' : '#memeWrong');
+  if (!el.naturalWidth) return;                 // image missing or not loaded yet
+  const P = game.P;
+  let x = 0, y = 0;
+  for (const p of g.pieces) { x += p.x + P.cw / 2; y += p.y + P.ch / 2; }
+  x = (x / g.pieces.length) * view.s + view.tx;
+  y = (y / g.pieces.length) * view.s + view.ty;
+  const size = el.offsetWidth || 72, half = size / 2 + 8;
+  y -= Math.max(P.ch * view.s * 0.5, 20) + size * 0.35;   // sit just above the piece
+  x = clamp(x, half, view.cssW - half);
+  y = clamp(y, half, view.cssH - half);
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.hidden = false;
+  el.className = 'meme';
+  void el.offsetWidth;                          // restart the animation
+  el.className = 'meme ' + kind;
+  clearTimeout(memeTimers[kind]);
+  memeTimers[kind] = setTimeout(() => { el.hidden = true; }, 1200);
+  // Only one reaction at a time.
+  const other = $(kind === 'right' ? '#memeWrong' : '#memeRight');
+  other.hidden = true;
+}
+
 /** Feedback for a drop inside the frame that isn't the right spot. */
 function wrongSpot(g) {
   audio.thud();
+  showMeme('wrong', g);
   if (reducedMotion) return;
   const now = performance.now(), amp = game.P.s * 0.06;
   for (const p of g.pieces) p.anim = { shake: amp, t0: now, dur: 380 };
@@ -1631,6 +1695,8 @@ function absorbAlignedNeighbours(g) {
 function lockGroup(g) {
   g.locking = true;
   audio.click(true);
+  // The last piece gets the big celebration instead.
+  if (game.placed + g.pieces.length < game.total) showMeme('right', g);
   for (const p of g.pieces) p.locked = true;
   const commit = () => {
     const i = game.groups.indexOf(g);
@@ -1716,6 +1782,27 @@ const audio = {
     src.connect(bp).connect(g).connect(ac.destination);
     src.start(t);
   },
+  /** Firework burst: a low thump, plus crackles for the crackle style. */
+  boom(crackle) {
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    const ac = this.ctx, t = ac.currentTime, len = 0.6;
+    const buf = ac.createBuffer(1, Math.floor(ac.sampleRate * len), ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const e = Math.pow(1 - i / d.length, 3);
+      d[i] = (Math.random() * 2 - 1) * e * (crackle && Math.random() < 0.02 ? 4 : 1);
+    }
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(crackle ? 3000 : 900, t);
+    lp.frequency.exponentialRampToValueAtTime(200, t + len);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(lp).connect(g).connect(ac.destination);
+    src.start(t);
+  },
   fanfare() {
     if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
     const ac = this.ctx, t0 = ac.currentTime;
@@ -1777,48 +1864,209 @@ function onComplete() {
     }
     $('#result').hidden = false;
     $('#againBtn').focus();
-  }, 1300);
+  }, reducedMotion ? 1300 : 2400);
 }
 
+/**
+ * Full-screen celebration: fireworks shells rise from the bottom and burst
+ * across the whole screen (several burst styles), while confetti rains from
+ * the top and two cannons fire from the sides. The screen dims like a night
+ * sky while shells are bursting, so the colours pop. Drawn on one fixed
+ * canvas above the board (the result card sits on top); sparks use
+ * additive blending so overlaps glow.
+ */
 function confetti() {
   const cv = $('#confetti');
   cv.hidden = false;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const W = innerWidth, H = innerHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);   // particles don't need full retina
+  let W = innerWidth, H = innerHeight;
   cv.width = W * dpr; cv.height = H * dpr;
   const ctx = cv.getContext('2d');
-  const colors = ['#5b6cff', '#ff7a59', '#ffd166', '#06d6a0', '#ef476f', '#8a5bff', '#2ec4ff'];
-  const N = reducedMotion ? 40 : Math.min(260, Math.round(W * H / 4500));
-  const parts = [];
-  for (let i = 0; i < N; i++) {
-    const fromLeft = i % 2 === 0;
-    parts.push({
-      x: fromLeft ? -10 : W + 10, y: H * rand(0.45, 0.85),
-      vx: (fromLeft ? 1 : -1) * rand(4, 11), vy: -rand(9, 17),
-      r: rand(0, Math.PI * 2), vr: rand(-0.25, 0.25),
-      w: rand(6, 11), h: rand(8, 15), c: colors[i % colors.length], round: Math.random() < 0.3,
-      wob: rand(0, 6),
-    });
+  const small = W * H < 500000;                     // phones: fewer particles
+  const COLORS = ['#ff5e7e', '#ffd166', '#5b6cff', '#06d6a0', '#ff9f43', '#c86dd7', '#2ec4ff', '#ffffff'];
+  const pick = (a) => a[(Math.random() * a.length) | 0];
+
+  // ---- Confetti (paper pieces) ----
+  const papers = [];
+  const addPaper = (x, y, vx, vy) => papers.push({
+    x, y, vx, vy, r: rand(0, Math.PI * 2), vr: rand(-0.2, 0.2),
+    w: rand(6, 11), h: rand(9, 16), c: pick(COLORS), shape: Math.random() < 0.25 ? 'circle' : Math.random() < 0.2 ? 'ribbon' : 'rect',
+    wob: rand(0, 6), drag: rand(0.975, 0.99),
+  });
+  const cannon = (fromLeft, n) => {
+    for (let i = 0; i < n; i++) {
+      addPaper(fromLeft ? -10 : W + 10, H * rand(0.55, 0.9),
+        (fromLeft ? 1 : -1) * rand(5, 15) * Math.max(1, W / 900), -rand(10, 20) * Math.max(1, H / 900));
+    }
+  };
+
+  // ---- Fireworks ----
+  const rockets = [], sparks = [], flashes = [];
+  const STYLES = ['peony', 'ring', 'willow', 'twotone', 'peony', 'crackle'];
+  const launch = (delay) => rockets.push({
+    t0: performance.now() + delay,
+    x: rand(W * 0.1, W * 0.9), y: H + 10,
+    tx: 0, ty: rand(H * 0.12, H * 0.5),
+    vx: rand(-1, 1), vy: 0, started: false,
+    color: pick(COLORS), style: pick(STYLES), trail: [],
+  });
+  const burst = (x, y, color, style) => {
+    const scale = Math.min(W, H) / 700 + 0.45;          // bigger bursts on bigger screens
+    const n = Math.round((small ? 80 : 130) * (style === 'ring' ? 0.8 : 1));
+    const color2 = pick(COLORS.filter((c) => c !== color));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rand(-0.05, 0.05);
+      let sp = style === 'ring' ? 5 : rand(1.4, 6.2);
+      if (style === 'willow') sp *= 0.8;
+      sp *= scale;
+      sparks.push({
+        x, y, px: x, py: y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: 1, decay: style === 'willow' ? rand(0.005, 0.008) : rand(0.009, 0.015),
+        drag: style === 'willow' ? 0.975 : 0.965, grav: style === 'willow' ? 0.035 : 0.06,
+        color: style === 'willow' ? '#ffcf70' : style === 'twotone' && i % 2 ? color2 : color,
+        size: rand(2.2, 3.6) * Math.min(1.6, scale), crackle: style === 'crackle',
+      });
+    }
+    flashes.push({ x, y, t: 1, r: 160 * scale, color });
+    audio.boom(style === 'crackle');
+  };
+  // Volleys of 2-3 shells (fewer on phones), then a bigger finale.
+  const volleys = reducedMotion ? 0 : small ? 6 : 8, perVolley = small ? 2 : 3;
+  let shells = 0;
+  for (let v = 0; v < volleys; v++) {
+    for (let i = 0; i < perVolley; i++) { launch(v * 520 + i * rand(60, 200)); shells++; }
   }
+  if (volleys) for (let i = 0; i < perVolley + 2; i++) { launch(volleys * 520 + 500 + i * 70); shells++; }
+
+  cannon(true, reducedMotion ? 20 : small ? 70 : 120);
+  cannon(false, reducedMotion ? 20 : small ? 70 : 120);
+  let rainLeft = reducedMotion ? 0 : small ? 140 : 260;   // confetti falling from the top
+
   const start = performance.now();
+  let dim = 0, fireworksDone = 0;   // night-sky dimming, 0..1
+  const onResize = () => { W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; };
+  window.addEventListener('resize', onResize);
+
+  let last = start;
   const step = (now) => {
     const t = now - start;
+    // Physics is tuned per 60 fps frame; k scales it so slow devices
+    // run at the same real-time speed instead of in slow motion.
+    const k = clamp((now - last) / 16.67, 0.5, 3);
+    last = now;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    let alive = 0;
-    for (const p of parts) {
-      p.vy += 0.32; p.vx *= 0.985; p.vy *= 0.985;
-      p.x += p.vx + Math.sin(t / 180 + p.wob) * 0.6; p.y += p.vy; p.r += p.vr;
-      if (p.y < H + 30) alive++;
-      ctx.save();
-      ctx.translate(p.x, p.y); ctx.rotate(p.r);
-      ctx.fillStyle = p.c;
-      if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.w / 2, 0, 7); ctx.fill(); }
-      else ctx.fillRect(-p.w / 2, -p.h / 2 * Math.abs(Math.cos(t / 120 + p.wob)), p.w, p.h * Math.abs(Math.cos(t / 120 + p.wob)) + 1);
-      ctx.restore();
+
+    // Night sky: fade in while shells are flying, fade out once they're done.
+    if (shells) {
+      const active = rockets.length || sparks.length;
+      if (!active && !fireworksDone) fireworksDone = now;
+      dim = active ? Math.min(1, dim + 0.06 * k) : Math.max(0, dim - 0.025 * k);
+      if (dim > 0) {
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, `rgba(10,12,40,${0.78 * dim})`);
+        g.addColorStop(1, `rgba(28,18,58,${0.62 * dim})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      }
     }
-    if (alive && t < 6000) requestAnimationFrame(step);
-    else { ctx.clearRect(0, 0, W, H); cv.hidden = true; }
+
+    // Rain: a few new pieces per frame across the full width for ~3 s.
+    if (rainLeft > 0 && t < 3200) {
+      const k = Math.min(rainLeft, small ? 3 : 5);
+      for (let i = 0; i < k; i++) addPaper(rand(0, W), -20, rand(-1, 1), rand(1, 4));
+      rainLeft -= k;
+    }
+
+    // Rockets rising with a fading trail.
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const r = rockets[i];
+      if (now < r.t0) continue;
+      if (!r.started) { r.started = true; r.vy = -Math.sqrt(2 * 0.3 * (r.y - r.ty)); }
+      r.trail.push([r.x, r.y]); if (r.trail.length > 10) r.trail.shift();
+      r.x += r.vx * k; r.y += r.vy * k; r.vy += 0.3 * k;
+      for (let j = 0; j < r.trail.length; j++) {
+        const [x, y] = r.trail[j];
+        ctx.globalAlpha = (j / r.trail.length) * 0.6;
+        ctx.fillStyle = '#ffe9b0';
+        ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 7); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(r.x, r.y, 2.4, 0, 7); ctx.fill();
+      if (r.vy >= -0.5) { burst(r.x, r.y, r.color, r.style); rockets.splice(i, 1); }
+    }
+
+    // Burst flashes.
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const f = flashes[i];
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+      g.addColorStop(0, `rgba(255,255,255,${0.45 * f.t})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(f.x - f.r, f.y - f.r, f.r * 2, f.r * 2);
+      f.t -= 0.08 * k;
+      if (f.t <= 0) flashes.splice(i, 1);
+    }
+
+    // Sparks: streaks from their previous position, fading and twinkling.
+    // Batched into one path per colour and brightness level (a few strokes
+    // per frame instead of one per spark).
+    ctx.lineCap = 'round';
+    const batches = new Map();
+    let alive = 0;
+    for (let i = 0; i < sparks.length; i++) {
+      const p = sparks[i];
+      p.px = p.x; p.py = p.y;
+      const dr = Math.pow(p.drag, k);
+      p.vx *= dr; p.vy = p.vy * dr + p.grav * k;
+      p.x += p.vx * k; p.y += p.vy * k;
+      p.life -= p.decay * k;
+      if (p.life <= 0) continue;
+      sparks[alive++] = p;
+      let a = Math.min(1, p.life * 1.4);
+      if (p.life < 0.35 || p.crackle) a *= Math.random() < 0.5 ? 1 : 0.25;   // twinkle
+      const key = p.color + '|' + Math.min(3, Math.round(a * 3)) + '|' + (p.size > 2.9 ? 1 : 0);
+      let path = batches.get(key);
+      if (!path) batches.set(key, (path = new Path2D()));
+      path.moveTo(p.px - p.vx * 1.5, p.py - p.vy * 1.5);
+      path.lineTo(p.x, p.y);
+    }
+    sparks.length = alive;
+    const scaleW = Math.min(1.6, Math.min(W, H) / 700 + 0.45);
+    for (const [key, path] of batches) {
+      const [color, level, thick] = key.split('|');
+      if (level === '0') continue;
+      ctx.globalAlpha = +level / 3;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = (thick === '1' ? 3.3 : 2.5) * scaleW;
+      ctx.stroke(path);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Confetti papers flutter (they flip, so their height oscillates).
+    for (let i = papers.length - 1; i >= 0; i--) {
+      const p = papers[i];
+      const dr = Math.pow(p.drag, k);
+      p.vy += 0.22 * k; p.vx *= dr; p.vy *= dr;
+      p.x += (p.vx + Math.sin(t / 220 + p.wob) * 0.9) * k; p.y += p.vy * k; p.r += p.vr * k;
+      if (p.y > H + 40 || p.x < -60 || p.x > W + 60) { if (p.vy > 0) { papers.splice(i, 1); continue; } }
+      const flip = Math.abs(Math.cos(t / 130 + p.wob));
+      const cos = Math.cos(p.r), sin = Math.sin(p.r);
+      ctx.setTransform(cos * dpr, sin * dpr, -sin * dpr, cos * dpr, p.x * dpr, p.y * dpr);
+      ctx.fillStyle = p.c;
+      if (p.shape === 'circle') { ctx.beginPath(); ctx.ellipse(0, 0, p.w / 2, (p.w / 2) * flip + 0.5, 0, 0, 7); ctx.fill(); }
+      else if (p.shape === 'ribbon') { ctx.fillRect(-p.w * 0.2, -p.h, p.w * 0.4, p.h * 2 * flip + 1); }
+      else ctx.fillRect(-p.w / 2, (-p.h / 2) * flip, p.w, p.h * flip + 1);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const busy = papers.length || sparks.length || rockets.length || flashes.length || rainLeft > 0 || dim > 0;
+    if (busy && t < 12000) requestAnimationFrame(step);
+    else { ctx.clearRect(0, 0, W, H); cv.hidden = true; window.removeEventListener('resize', onResize); }
   };
   requestAnimationFrame(step);
 }
@@ -2596,6 +2844,17 @@ $('#playSharedBtn').addEventListener('click', () => {
   startGame();
 });
 window.addEventListener('hashchange', () => { if (!screens.landing.hidden) checkShareLink(); });
+
+// Result card hero: the thumbs-up cat photo, or the 🎉 emoji if it can't load.
+(() => {
+  const img = $('#resultCat'), card = $('#resultHero').parentElement;
+  const useCat = () => { card.classList.add('has-cat'); $('#resultHero').hidden = false; $('#resultBadge').hidden = true; };
+  const useEmoji = () => { card.classList.remove('has-cat'); $('#resultHero').hidden = true; $('#resultBadge').hidden = false; };
+  img.addEventListener('load', useCat);
+  img.addEventListener('error', useEmoji);
+  if (img.complete) (img.naturalWidth ? useCat : useEmoji)();
+  else useEmoji();   // until it has loaded
+})();
 
 // Resize handling.
 new ResizeObserver(() => { if (!screens.game.hidden) resizeCanvas(); }).observe($('#boardWrap'));
