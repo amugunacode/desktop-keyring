@@ -138,6 +138,28 @@ h1{font-size:clamp(2rem,6vw,2.6rem);line-height:1.1;margin:0 0 8px;letter-spacin
   pointer-events:none;transition:opacity .5s;z-index:2;max-width:calc(100% - 132px);text-align:center;
 }
 
+/* Cat reactions that pop up over a dropped piece */
+.meme{position:absolute;left:0;top:0;width:118px;height:118px;object-fit:cover;border-radius:26px;border:4px solid #fff;
+  box-shadow:0 10px 26px rgba(30,40,70,.32);pointer-events:none;z-index:3;transform:translate(-50%,-50%)}
+.meme.right{animation:memeRight 1.15s cubic-bezier(.2,1.2,.4,1) forwards}
+.meme.wrong{animation:memeWrong 1.15s ease forwards}
+@keyframes memeRight{
+  0%{transform:translate(-50%,-30%) scale(.2) rotate(-14deg);opacity:0}
+  18%{transform:translate(-50%,-50%) scale(1.08) rotate(4deg);opacity:1}
+  30%{transform:translate(-50%,-50%) scale(1) rotate(0)}
+  75%{transform:translate(-50%,-55%) scale(1);opacity:1}
+  100%{transform:translate(-50%,-75%) scale(.85);opacity:0}}
+@keyframes memeWrong{
+  0%{transform:translate(-50%,-50%) scale(.3);opacity:0}
+  14%{transform:translate(-50%,-50%) scale(1.12);opacity:1}
+  22%{transform:translate(-54%,-50%) scale(1) rotate(-5deg)}
+  30%{transform:translate(-46%,-50%) rotate(5deg)}
+  38%{transform:translate(-53%,-50%) rotate(-3deg)}
+  46%{transform:translate(-50%,-50%) rotate(0)}
+  78%{opacity:1}
+  100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}
+@media (min-width:820px){.meme{width:140px;height:140px}}
+
 /* Floating view controls (bottom-right of the board) */
 .zoom-ctl{position:absolute;right:12px;bottom:calc(12px + var(--safe-bottom));display:flex;flex-direction:column;gap:8px;z-index:2}
 .zbtn{width:42px;height:42px;border:0;border-radius:14px;background:rgba(255,255,255,.92);box-shadow:var(--shadow-sm);display:grid;place-items:center;color:var(--ink);touch-action:manipulation;transition:transform .12s,background .15s}
@@ -311,6 +333,8 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     <canvas id="board" aria-label="퍼즐 보드 · Puzzle board"></canvas>
     <div class="loader" id="loader" hidden><div><div class="spinner"></div><span id="loaderText" class="bi"></span></div></div>
     <div class="hint" id="hint" hidden></div>
+    <img class="meme" id="memeRight" src="right-cat.jpg" alt="" aria-hidden="true" hidden>
+    <img class="meme" id="memeWrong" src="wrong-cat.jpg" alt="" aria-hidden="true" hidden>
     <div class="zoom-ctl" role="toolbar" aria-label="보기 조절 · View controls">
       <button class="zbtn" id="gatherBtn" type="button" title="보이는 곳으로 조각 모으기 (G) · Gather pieces into view (G)" aria-label="조각 모으기 · Gather pieces">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l5 5M20 4l-5 5M4 20l5-5M20 20l-5-5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg></button>
@@ -1589,9 +1613,40 @@ function overlapsFrame(g) {
   });
 }
 
+/**
+ * Pops a cat reaction over a group for about a second: the heart cat for a
+ * correct placement, the explosion cat for a wrong spot. Shown above the
+ * piece where possible and kept inside the board area.
+ */
+const memeTimers = {};
+function showMeme(kind, g) {
+  const el = $(kind === 'right' ? '#memeRight' : '#memeWrong');
+  if (!el.naturalWidth) return;                 // image missing or not loaded yet
+  const P = game.P;
+  let x = 0, y = 0;
+  for (const p of g.pieces) { x += p.x + P.cw / 2; y += p.y + P.ch / 2; }
+  x = (x / g.pieces.length) * view.s + view.tx;
+  y = (y / g.pieces.length) * view.s + view.ty;
+  const size = el.offsetWidth || 118, half = size / 2 + 8;
+  y -= Math.max(P.ch * view.s * 0.5, 20) + size * 0.35;   // sit just above the piece
+  x = clamp(x, half, view.cssW - half);
+  y = clamp(y, half, view.cssH - half);
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.hidden = false;
+  el.className = 'meme';
+  void el.offsetWidth;                          // restart the animation
+  el.className = 'meme ' + kind;
+  clearTimeout(memeTimers[kind]);
+  memeTimers[kind] = setTimeout(() => { el.hidden = true; }, 1200);
+  // Only one reaction at a time.
+  const other = $(kind === 'right' ? '#memeWrong' : '#memeRight');
+  other.hidden = true;
+}
+
 /** Feedback for a drop inside the frame that isn't the right spot. */
 function wrongSpot(g) {
   audio.thud();
+  showMeme('wrong', g);
   if (reducedMotion) return;
   const now = performance.now(), amp = game.P.s * 0.06;
   for (const p of g.pieces) p.anim = { shake: amp, t0: now, dur: 380 };
@@ -1640,6 +1695,8 @@ function absorbAlignedNeighbours(g) {
 function lockGroup(g) {
   g.locking = true;
   audio.click(true);
+  // The last piece gets the big celebration instead.
+  if (game.placed + g.pieces.length < game.total) showMeme('right', g);
   for (const p of g.pieces) p.locked = true;
   const commit = () => {
     const i = game.groups.indexOf(g);
