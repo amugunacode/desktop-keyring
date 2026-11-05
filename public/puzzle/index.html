@@ -222,6 +222,15 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
 .tool .bi .en{font-size:.72em}
 .btn{line-height:1.2}
 
+/* Time-lapse */
+.replay-modal{z-index:9}
+.replay-card{max-width:380px;padding:16px 16px 12px}
+.replay-canvas{display:block;margin:0 auto 10px;height:min(62vh,560px);width:auto;max-width:100%;aspect-ratio:9/16;border-radius:16px;box-shadow:var(--shadow-sm);background:#e9eef4}
+.replay-status{margin:0 0 12px;font-size:.88rem;color:var(--ink-2);min-height:2.4em}
+.replay-links{margin-top:6px}
+.replay-links .back{margin:0}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
 /* Share */
 .link-btn{margin-top:12px;border:0;background:none;color:var(--accent);font-weight:650;display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px}
 .link-btn:hover{background:#eef0ff}
@@ -364,6 +373,9 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     <button class="btn ghost share-wide" id="resultShareBtn" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
       <span class="bi"><span>친구에게 도전장 보내기</span><span class="en">Challenge a friend</span></span></button>
+    <button class="btn ghost share-wide" id="replayBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg>
+      <span class="bi"><span>🎬 타임랩스 영상</span><span class="en">Time-lapse video</span></span></button>
     <div class="row">
       <button class="btn primary" id="againBtn" type="button"><span class="bi"><span>다시 하기</span><span class="en">Play again</span></span></button>
       <button class="btn ghost" id="resultNewBtn" type="button"><span class="bi"><span>새 사진</span><span class="en">New photo</span></span></button>
@@ -382,6 +394,22 @@ h1 .en{font-size:.42em;font-weight:650;opacity:.55;margin-top:4px;letter-spacing
     </div>
     <p class="share-note">사진은 서버에 올라가지 않고 링크 안에 담겨 전달돼요. 링크를 받은 사람은 사진을 볼 수 있어요.<span class="en">The photo isn't uploaded — it's packed into the link itself. Anyone with the link can see it.</span></p>
     <button class="back" id="shareCloseBtn" type="button">닫기 · Close</button>
+  </div>
+</div>
+
+<div class="modal replay-modal" id="replayModal" hidden role="dialog" aria-modal="true" aria-labelledby="replayTitle">
+  <div class="result replay-card">
+    <h2 id="replayTitle" class="sr-only">타임랩스 영상 · Time-lapse video</h2>
+    <canvas id="replayCanvas" class="replay-canvas" width="720" height="1280"></canvas>
+    <p class="replay-status" id="replayStatus"></p>
+    <div class="row">
+      <button class="btn primary" id="replayShareBtn" type="button" hidden disabled><span class="bi"><span>공유하기</span><span class="en">Share</span></span></button>
+      <button class="btn ghost" id="replaySaveBtn" type="button" hidden disabled><span class="bi"><span>영상 저장</span><span class="en">Save video</span></span></button>
+    </div>
+    <div class="row replay-links">
+      <button class="back" id="replayAgainBtn" type="button">↻ 다시 보기 · Replay</button>
+      <button class="back" id="replayCloseBtn" type="button">닫기 · Close</button>
+    </div>
   </div>
 </div>
 
@@ -871,7 +899,7 @@ function maxSpriteScale(P) {
  * Renders all sprites at scale k into a fresh atlas. Work is chunked across
  * frames so the UI never freezes. Resolves to the atlas, or null if cancelled.
  */
-async function buildSprites(P, k, isCancelled, onProgress) {
+async function buildSprites(P, k, isCancelled, onProgress, includeLocked) {
   const sw = Math.ceil((P.cw + 2 * P.pad) * k), sh = Math.ceil((P.ch + 2 * P.pad) * k);
   const atlas = new Atlas(Math.max(2048, sw + ATLAS_GAP, sh + ATLAS_GAP));
   const slots = new Array(P.pieces.length);
@@ -881,7 +909,7 @@ async function buildSprites(P, k, isCancelled, onProgress) {
     const piece = P.pieces[i];
     const slot = atlas.alloc(sw, sh);
     slots[i] = slot;
-    if (piece.locked) continue;                    // locked pieces never need a sprite
+    if (piece.locked && !includeLocked) continue;  // locked pieces never need a sprite on the board
     const ctx = atlas.pages[slot.page].getContext('2d');
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1709,6 +1737,7 @@ function lockGroup(g) {
     game.groups.splice(i, 1);
     for (const p of g.pieces) { p.anim = null; p.x = p.cx; p.y = p.cy; drawLockedPiece(p); }
     game.placed += g.pieces.length;
+    game.lockLog.push(g.pieces.map((p) => p.id));   // order of placement, for the time-lapse
     sceneCache = null;
     flash(g.pieces.slice(), '255,214,102');
     buzz(18);
@@ -2251,6 +2280,7 @@ $('#startBtn').addEventListener('click', () => {
 
 function goLanding() {
   game.token++;
+  closeReplay();
   game.P = null; game.sprites = null; game.groups = []; game.targetLayer = null; game.board = null;
   stopTimer();
   $('#result').hidden = true;
@@ -2269,6 +2299,7 @@ async function startGame(restore) {
     : computeGrid(ui.count, img.width, img.height);
   game.id = restore ? restore.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   $('#result').hidden = true;
+  closeReplay();
   game.P = null; game.board = null;
   showScreen('game');
   const loader = $('#loader');
@@ -2277,6 +2308,7 @@ async function startGame(restore) {
   game.P = null; game.sprites = null; game.groups = []; game.targetLayer = null;
   game.completed = false; game.seamFade = 0; game.placed = 0; game.total = grid.count;
   game.flashes = []; game.introUntil = Infinity; game.wrongHintShown = false; sceneCache = null;
+  game.lockLog = restore && Array.isArray(restore.lockLog) ? restore.lockLog.slice() : [];
   game.edgeOnly = false; $('#edgeBtn').setAttribute('aria-pressed', 'false');
   stopTimer(); game.timer = { start: 0, accumulated: 0, running: false };
   $('#timer').textContent = '00:00';
@@ -2660,7 +2692,7 @@ function snapshot() {
   }
   return {
     v: SAVE_VERSION, id: game.id, cols: P.cols, rows: P.rows, count: ui.count,
-    edges: P.edges, pos, locked,
+    edges: P.edges, pos, locked, lockLog: game.lockLog,
     groups: game.groups.filter((g) => !g.locking).map((g) => g.pieces.map((p) => p.id)),
     elapsed: elapsed(), total: game.total, savedAt: Date.now(), challenge: ui.challenge || null,
   };
@@ -2924,6 +2956,267 @@ window.addEventListener('hashchange', () => { if (!screens.landing.hidden) check
   if (img.complete) (img.naturalWidth ? useCat : useEmoji)();
   else useEmoji();   // until it has loaded
 })();
+
+/* =====================================================================
+   18. TIME-LAPSE VIDEO
+   Replays the solve in the order pieces were placed, as a 9:16 (Reels /
+   Stories) clip drawn on a canvas. The canvas is recorded live with
+   MediaRecorder (MP4 where supported, else WebM), so the clip can be saved
+   or shared. Everything stays in the browser.
+   ===================================================================== */
+const RV_W = 720, RV_H = 1280, RV_FONT = 'system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif';
+let replay = null;   // {token, raf, recorder, blob, url, ...}
+
+function recorderMime() {
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return null;
+  const types = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  return types.find((t) => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || null;
+}
+
+/** Works out the clip's layout and the order/timing of each piece's flight. */
+function planReplay(P) {
+  const sc = Math.min(640 / P.W, 560 / P.H);
+  const fw = P.W * sc, fh = P.H * sc;
+  const fx = (RV_W - fw) / 2, fy = 250 + (560 - fh) / 2;
+  // Placement order from the log; pieces placed before logging began
+  // (older saves, demo mode) go first in random order.
+  const logged = new Set(game.lockLog.flat());
+  const events = shuffle(P.pieces.filter((p) => !logged.has(p.id))).map((p) => [p.id]).concat(game.lockLog);
+  // Start spots: random places on the clip around (not on) the frame.
+  const pw = P.cw * sc, ph = P.ch * sc, pad = P.pad * sc;
+  const start = new Array(P.pieces.length);
+  for (const p of P.pieces) {
+    let x, y;
+    for (let i = 0; i < 40; i++) {
+      x = rand(8 + pad * 0.3, RV_W - pw - 8 - pad * 0.3);
+      y = rand(170, RV_H - 150 - ph);
+      const hitsFrame = x + pw > fx - 10 && x < fx + fw + 10 && y + ph > fy - 10 && y < fy + fh + 10;
+      if (!hitsFrame) break;
+    }
+    start[p.id] = { x: (x - fx) / sc, y: (y - fy) / sc };   // in world units, relative to the frame
+  }
+  const hold = 700, assemble = clamp(2400 + events.length * 22, 2600, 6500);
+  const fly = Math.min(520, Math.max(260, assemble / Math.max(1, events.length) * 6));
+  const when = new Array(P.pieces.length);
+  events.forEach((ids, i) => {
+    const t0 = hold + (events.length > 1 ? (i / (events.length - 1)) * (assemble - fly) : 0);
+    for (const id of ids) when[id] = t0;
+  });
+  const done = hold + assemble;
+  return { sc, fx, fy, fw, fh, start, when, fly, hold, done, fade: 700, end: done + 700 + 2600 };
+}
+
+function drawReplayFrame(ctx, P, plan, sprites, t, extras) {
+  const { sc, fx, fy, fw, fh } = plan;
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, 0, RV_H);
+  bg.addColorStop(0, '#eef1ff'); bg.addColorStop(0.55, '#dde4ec'); bg.addColorStop(1, '#f4e6f0');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, RV_W, RV_H);
+  // Title
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#1d2433';
+  ctx.font = `800 46px ${RV_FONT}`;
+  ctx.fillText('사진 직소 퍼즐', RV_W / 2, 92);
+  ctx.fillStyle = '#5a6578';
+  ctx.font = `600 22px ${RV_FONT}`;
+  ctx.fillText(`Photo Jigsaw · ${game.total}조각 pieces`, RV_W / 2, 128);
+  // Frame card with the faint outline grid
+  ctx.save();
+  ctx.shadowColor = 'rgba(35,50,80,.25)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+  ctx.fillStyle = '#fff';
+  roundRectPath(ctx, fx - 10, fy - 10, fw + 20, fh + 20, 16); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#f3f6fa'; ctx.fillRect(fx, fy, fw, fh);
+  ctx.save();
+  ctx.setTransform(sc, 0, 0, sc, fx, fy);
+  ctx.strokeStyle = 'rgba(70,85,120,.18)'; ctx.lineWidth = 1.2 / sc;
+  ctx.stroke(P.ghost);
+  ctx.restore();
+  // Pieces: placed ones first, then waiting ones, flying ones on top.
+  const k = sprites.k, dw = sprites.sw / k, dh = sprites.sh / k;
+  const blit = (p, wx, wy) => {
+    const sl = sprites.slots[p.id];
+    ctx.setTransform(sc, 0, 0, sc, fx, fy);
+    ctx.drawImage(sprites.atlas.pages[sl.page], sl.x, sl.y, sprites.sw, sprites.sh, wx - P.pad, wy - P.pad, dw, dh);
+  };
+  const flying = [], waiting = [];
+  for (const p of P.pieces) {
+    const t0 = plan.when[p.id];
+    if (t >= t0 + plan.fly) blit(p, p.cx, p.cy);
+    else if (t >= t0) flying.push(p);
+    else waiting.push(p);
+  }
+  for (const p of waiting) blit(p, plan.start[p.id].x, plan.start[p.id].y);
+  for (const p of flying) {
+    const e = easeInOutCubic((t - plan.when[p.id]) / plan.fly), s0 = plan.start[p.id];
+    blit(p, s0.x + (p.cx - s0.x) * e, s0.y + (p.cy - s0.y) * e);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // Seams fade away once it's complete.
+  if (t > plan.done) {
+    const a = clamp((t - plan.done) / plan.fade, 0, 1);
+    ctx.globalAlpha = a; ctx.drawImage(P.src, fx, fy, fw, fh); ctx.globalAlpha = 1;
+  }
+  // Confetti burst at completion.
+  if (t > plan.done) {
+    if (!extras.confetti) {
+      extras.confetti = [];
+      const cols = ['#ff5e7e', '#ffd166', '#5b6cff', '#06d6a0', '#ff9f43', '#c86dd7', '#2ec4ff'];
+      for (let i = 0; i < 140; i++) extras.confetti.push({ x: RV_W / 2 + rand(-60, 60), y: fy + fh / 2, vx: rand(-9, 9), vy: rand(-15, -4), r: rand(0, 6), vr: rand(-0.3, 0.3), c: cols[i % cols.length], w: rand(7, 12), h: rand(10, 16) });
+      extras.last = t;
+    }
+    const kf = clamp((t - extras.last) / 16.67, 0.5, 3); extras.last = t;
+    for (const c of extras.confetti) {
+      c.vy += 0.35 * kf; c.vx *= Math.pow(0.985, kf); c.x += c.vx * kf; c.y += c.vy * kf; c.r += c.vr * kf;
+      const cos = Math.cos(c.r), sin = Math.sin(c.r);
+      ctx.setTransform(cos, sin, -sin, cos, c.x, c.y);
+      ctx.fillStyle = c.c; ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  // End card: thumbs-up cat, time, pieces, site address.
+  const te = t - plan.done - plan.fade * 0.6;
+  if (te > 0) {
+    const a = clamp(te / 350, 0, 1), pop = 0.6 + 0.4 * easeOutCubic(a);
+    const cy = Math.min(RV_H - 250, fy + fh + 150), r = 78 * pop;
+    ctx.globalAlpha = a;
+    const cat = $('#resultCat');
+    ctx.save();
+    ctx.beginPath(); ctx.arc(RV_W / 2, cy, r + 6, 0, 7); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(30,40,70,.3)'; ctx.shadowBlur = 20; ctx.fill();
+    ctx.restore();
+    if (cat && cat.naturalWidth) {
+      ctx.save(); ctx.beginPath(); ctx.arc(RV_W / 2, cy, r, 0, 7); ctx.clip();
+      ctx.drawImage(cat, RV_W / 2 - r, cy - r, r * 2, r * 2); ctx.restore();
+    } else {
+      ctx.font = `${Math.round(90 * pop)}px ${RV_FONT}`; ctx.fillText('🎉', RV_W / 2, cy + 30 * pop);
+    }
+    ctx.fillStyle = '#1d2433';
+    ctx.font = `800 40px ${RV_FONT}`;
+    ctx.fillText(`완성! ${formatTime(extras.time)}`, RV_W / 2, cy + r + 62);
+    ctx.fillStyle = '#5a6578';
+    ctx.font = `600 22px ${RV_FONT}`;
+    ctx.fillText(`Solved in ${formatTime(extras.time)}`, RV_W / 2, cy + r + 96);
+    ctx.globalAlpha = 1;
+  }
+  // Site address at the bottom, always visible.
+  ctx.fillStyle = '#5b6cff';
+  ctx.font = `700 24px ${RV_FONT}`;
+  ctx.fillText(extras.site, RV_W / 2, RV_H - 54);
+}
+
+async function openReplay() {
+  const P = game.P;
+  if (!P) return;
+  closeReplay();
+  const modal = $('#replayModal'), status = $('#replayStatus');
+  const saveBtn = $('#replaySaveBtn'), shareBtn = $('#replayShareBtn');
+  modal.hidden = false;
+  saveBtn.hidden = shareBtn.hidden = true;
+  saveBtn.disabled = shareBtn.disabled = true;
+  setBi(status, '영상 만드는 중…', 'Making the video…');
+  const token = game.token;
+  const r = replay = { token, raf: 0, recorder: null, blob: null, url: null };
+  const plan = planReplay(P);
+  // Sprites at the clip's scale (the board's sprites skip placed pieces).
+  const sprites = await buildSprites(P, Math.min(1, plan.sc * 1.5), () => replay !== r, null, true);
+  if (!sprites || replay !== r) return;
+  playReplay(r, P, plan, sprites);
+}
+
+function playReplay(r, P, plan, sprites) {
+  const cv = $('#replayCanvas'), ctx = cv.getContext('2d');
+  const status = $('#replayStatus');
+  const extras = { time: elapsed(), site: shareBaseUrl().replace(/^https?:\/\//, '').replace(/\/$/, '') };
+  if (r.url) { URL.revokeObjectURL(r.url); r.url = null; }
+  r.blob = null;
+  // Record while it plays.
+  const mime = recorderMime();
+  if (mime) {
+    try {
+      const chunks = [];
+      const rec = new MediaRecorder(cv.captureStream(30), { mimeType: mime, videoBitsPerSecond: 5e6 });
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = () => {
+        if (replay !== r) return;
+        r.blob = new Blob(chunks, { type: mime.split(';')[0] });
+        r.ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+        replayReady(r);
+      };
+      rec.start(250);
+      r.recorder = rec;
+    } catch (err) { console.warn('Recording failed', err); r.recorder = null; }
+  }
+  setBi(status, r.recorder ? '재생하며 녹화하는 중… 🎬' : '재생 중 (이 브라우저는 영상 저장을 지원하지 않아요)',
+    r.recorder ? 'Playing and recording… 🎬' : "Playing (this browser can't save video)");
+  const t0 = performance.now();
+  const frame = (now) => {
+    if (replay !== r) return;
+    const t = now - t0;
+    drawReplayFrame(ctx, P, plan, sprites, Math.min(t, plan.end), extras);
+    if (t < plan.end) { r.raf = requestAnimationFrame(frame); return; }
+    r.raf = 0;
+    if (r.recorder && r.recorder.state !== 'inactive') r.recorder.stop();
+    else if (!r.recorder) setBi(status, '다시 보기를 눌러 한 번 더 볼 수 있어요.', 'Tap Replay to watch it again.');
+  };
+  r.raf = requestAnimationFrame(frame);
+  r.replayArgs = [P, plan, sprites];
+}
+
+function replayReady(r) {
+  const saveBtn = $('#replaySaveBtn'), shareBtn = $('#replayShareBtn');
+  r.file = new File([r.blob], `photo-jigsaw-${new Date().toISOString().slice(0, 10)}.${r.ext}`, { type: r.blob.type });
+  let canShareFile = false;
+  try { canShareFile = !!(navigator.canShare && navigator.canShare({ files: [r.file] })); } catch {}
+  shareBtn.hidden = !canShareFile;
+  saveBtn.hidden = false;
+  saveBtn.disabled = shareBtn.disabled = false;
+  setBi($('#replayStatus'), `영상이 준비됐어요 (${(r.blob.size / 1e6).toFixed(1)}MB). 릴스나 스토리에 올려 보세요!`,
+    `Your video is ready (${(r.blob.size / 1e6).toFixed(1)} MB) — post it to Reels or Stories!`);
+  (canShareFile ? shareBtn : saveBtn).focus();
+}
+
+function closeReplay() {
+  const r = replay;
+  replay = null;
+  if (r) {
+    cancelAnimationFrame(r.raf);
+    if (r.recorder && r.recorder.state !== 'inactive') { r.recorder.onstop = null; try { r.recorder.stop(); } catch {} }
+    if (r.url) URL.revokeObjectURL(r.url);
+  }
+  $('#replayModal').hidden = true;
+}
+
+$('#replayBtn').addEventListener('click', openReplay);
+$('#replayCloseBtn').addEventListener('click', closeReplay);
+$('#replayModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeReplay(); });
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#replayModal').hidden) closeReplay(); });
+$('#replayAgainBtn').addEventListener('click', () => {
+  const r = replay;
+  if (!r || !r.replayArgs) return;
+  cancelAnimationFrame(r.raf);
+  if (r.recorder && r.recorder.state !== 'inactive') { r.recorder.onstop = null; try { r.recorder.stop(); } catch {} }
+  $('#replaySaveBtn').hidden = $('#replayShareBtn').hidden = true;
+  playReplay(r, ...r.replayArgs);
+});
+$('#replaySaveBtn').addEventListener('click', () => {
+  const r = replay;
+  if (!r || !r.blob) return;
+  if (!r.url) r.url = URL.createObjectURL(r.blob);
+  const a = document.createElement('a');
+  a.href = r.url; a.download = r.file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast('영상을 저장했어요.', 'Video saved.');
+});
+$('#replayShareBtn').addEventListener('click', async () => {
+  const r = replay;
+  if (!r || !r.file) return;
+  try {
+    await navigator.share({ files: [r.file], title: '사진 직소 퍼즐 · Photo Jigsaw', text: `🧩 ${game.total}조각 퍼즐 완성! ${formatTime(elapsed())}` });
+  } catch (err) {
+    if (!err || err.name !== 'AbortError') $('#replaySaveBtn').click();
+  }
+});
 
 // Resize handling.
 new ResizeObserver(() => { if (!screens.game.hidden) resizeCanvas(); }).observe($('#boardWrap'));
