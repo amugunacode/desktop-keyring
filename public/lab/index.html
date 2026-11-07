@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eef1ff">
+  <title>amuguna lab · 직접 만든 프로그램 모음</title>
+  <meta name="description" content="직접 만든 작은 프로그램들을 모아 둔 곳. 골라서 바로 써 보세요.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="amuguna lab · 직접 만든 프로그램 모음">
+  <meta property="og:description" content="직접 만든 작은 프로그램들을 모아 둔 곳. 골라서 바로 써 보세요.">
+  <meta property="og:image" content="https://amugunalab.vercel.app/lab/puzzle.jpg">
+  <meta property="og:url" content="https://amugunalab.vercel.app/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b6cff'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial' font-weight='700'%3Ea%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="profile">
+      <div class="avatar" aria-hidden="true">a</div>
+      <h1>amuguna lab</h1>
+      <p class="bio">직접 만든 작은 프로그램들<span class="en">Little things I made — pick one and try it</span></p>
+    </header>
+
+    <!--
+      Program cards. To add a program, copy one <a class="card"> block,
+      change the link, image, title, description and tags.
+    -->
+    <section class="cards" aria-label="프로그램 목록 · Programs">
+      <a class="card" href="https://catpuzzle.vercel.app/">
+        <img class="thumb" src="puzzle.jpg" width="1200" height="750" alt="사진 직소 퍼즐을 맞추는 화면">
+        <div class="body">
+          <h2>🧩 사진 직소 퍼즐<span class="en">Photo Jigsaw</span></h2>
+          <p>내 사진을 올리면 바로 직소 퍼즐로. 맞추면 따봉 고양이가 반겨 주고, 친구에게 도전장도 보낼 수 있어요.</p>
+          <ul class="tags" aria-label="특징">
+            <li>웹에서 바로</li><li>설치 없음</li><li>무료</li><li>타임랩스 영상</li>
+          </ul>
+          <span class="cta">플레이하기 · Play <span aria-hidden="true">→</span></span>
+        </div>
+      </a>
+    </section>
+
+    <footer class="foot">
+      <p>사진은 내 기기에서만 처리되고 업로드되지 않아요.<span class="en">Your photos stay on your device.</span></p>
+    </footer>
+  </main>
+</body>
+</html>
