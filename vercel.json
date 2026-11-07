@@ -5,7 +5,8 @@
   "outputDirectory": "dist",
   "redirects": [
     { "source": "/", "has": [{ "type": "host", "value": "catpuzzle.vercel.app" }], "destination": "/puzzle/", "permanent": false },
-    { "source": "/", "has": [{ "type": "host", "value": "amugunalab.vercel.app" }], "destination": "/lab/", "permanent": false }
+    { "source": "/", "has": [{ "type": "host", "value": "amugunalab.vercel.app" }], "destination": "/lab/", "permanent": false },
+    { "source": "/", "destination": "/lab/", "permanent": false }
   ],
   "headers": [
     { "source": "/((?!puzzle).*)", "headers": [
